@@ -1,0 +1,9 @@
+(library
+ (name ppx_debug_runtime)
+ (libraries linenoise)
+ (preprocess (pps ppx_deriving.show)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

@@ -1,0 +1,10 @@
+
+(executable
+ (name debug)
+ (libraries lib compiler-libs.common containers)
+ (preprocess (pps ppx_debug_tool)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

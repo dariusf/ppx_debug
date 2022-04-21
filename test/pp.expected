@@ -1,0 +1,14 @@
+let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "test"
+let fact n =
+  let fact_original self n = match n with | 0 -> 1 | n -> n * (self (n - 1)) in
+  let rec aux n =
+    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"fact";
+    (Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+       ~ppx_debug_id:("test.ml", "func", 0) "fact n" n;
+     ());
+    (let res = fact_original aux n in
+     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+       ~ppx_debug_id:("test.ml", "func", 1) "fact res" res;
+     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"fact";
+     res) in
+  aux n

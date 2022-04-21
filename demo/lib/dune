@@ -1,0 +1,9 @@
+(library
+ (name lib)
+ (libraries ppx_debug_runtime)
+ (preprocess (pps ppx_debug ppx_deriving.show)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

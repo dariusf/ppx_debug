@@ -1,0 +1,10 @@
+
+(executable
+ (name app)
+ (libraries lib)
+ (preprocess (pps ppx_deriving.show)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))
