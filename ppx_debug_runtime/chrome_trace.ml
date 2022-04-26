@@ -1,6 +1,6 @@
-(* Incomplete implementation of
+(* Incomplete but tiny implementation of
 
-      https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.yr4qxyxotyw
+   https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.yr4qxyxotyw
 
    there are at least two other options for writing trace data in a way that allows one of https://magic-trace.org/, https://ui.perfetto.dev/#!/, or chrome://tracing to be used; see https://github.com/ocaml/dune/pull/5618 *)
 
