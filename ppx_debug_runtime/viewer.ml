@@ -76,7 +76,7 @@ and to_tree trace =
   | e :: es ->
     begin
       match e with
-      | Trace.FrameStart func ->
+      | Trace.FrameStart { func; _ } ->
         let trees, trace = look_for_end es [] in
         (* begin
              match trees with
@@ -97,7 +97,10 @@ and look_for_end trace res =
     | FrameStart _ ->
       let tree, trace = to_tree es in
       look_for_end trace (tree :: res)
-    | Value (id, s) -> look_for_end es (Leaf (e, (id, s)) :: res))
+    | Value { id; content; _ } ->
+      look_for_end es (Leaf (e, (id, content)) :: res)
+    | Argument { id; content; _ } ->
+      look_for_end es (Leaf (e, (id, content)) :: res))
   | [] -> (List.rev res, [])
 
 let to_trees trace =

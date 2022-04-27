@@ -361,9 +361,16 @@ let fresh () =
 
 module A = Ast_builder.Default
 
-let generate_printer ~loc cu what v =
+let generate_value ~loc cu what v =
   [%expr
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+      ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
+      [%e A.estring ~loc what]
+      [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
+
+let generate_arg ~loc cu what v =
+  [%expr
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
       [%e A.estring ~loc what]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
@@ -386,7 +393,7 @@ let run_invoc ~loc cu fn_expr fn_name params =
     params
     |> List.filter_map (function
          | Param { param = { txt = s; _ }; _ } ->
-           Some (generate_printer ~loc cu (Format.sprintf "%s %s" fn_name s) s)
+           Some (generate_arg ~loc cu (Format.sprintf "%s %s" fn_name s) s)
          | Unit _ -> None)
   in
   let print_params =
@@ -407,7 +414,7 @@ let run_invoc ~loc cu fn_expr fn_name params =
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in
   let print_res =
-    generate_printer ~loc cu (Format.sprintf "%s res" fn_name) "res"
+    generate_arg ~loc cu (Format.sprintf "%s res" fn_name) "res"
   in
   [%expr
     [%e start];

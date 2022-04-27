@@ -6,7 +6,8 @@ all:
 	dune test --display=short
 	# dune build @install
 	dune exec --display=short ./demo/app/app.exe
-	dune exec --display=short ./demo/debug/debug.exe | tee chrome.json
+	dune build @check
+	dune exec --display=short ./demo/debug/debug.exe | tee chrome.json | jq .
 
 .PHONY: w
 w:

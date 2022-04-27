@@ -1,6 +1,6 @@
 (library
  (name ppx_debug_runtime)
- (libraries linenoise yojson)
+ (libraries linenoise yojson unix)
  (preprocess (pps ppx_deriving.show ppx_deriving_yojson)))
 
 (env

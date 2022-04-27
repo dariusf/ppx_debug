@@ -6,12 +6,14 @@
 - debug: frontend for reading traces, depends on lib
 - ppx_debug_tool: used by debug to read type info produced by compilation of lib
 
+Fills the niche an interactive debugger would fill in other languages
+
 A small, robust framework for _application-level tracing_, intended for exploring and debugging code with complex recursive functions (i.e. PL tools).
 
 Annotate code like this:
 
 ```ocaml
-let%trace f xs =
+let[@trace] f xs =
   List.length xs + 1
 
 let () =

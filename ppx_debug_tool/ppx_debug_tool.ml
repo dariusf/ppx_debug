@@ -36,7 +36,7 @@ let handle_expr modname it expr =
           _;
         },
         args )
-    when String.equal name "emit_value" ->
+    when String.equal name "emit_value" || String.equal name "emit_argument" ->
     let site_id =
       args
       |> List.filter_map (function
@@ -159,6 +159,7 @@ let walk_build_dir () =
   IO.File.walk_seq "."
   |> Seq.iter (function
        | `File, s when String.ends_with ~suffix:"cmt" s && should_ignore s ->
+         (* print_endline s; *)
          let cmt = Cmt_format.read_cmt s in
          let modname = cmt.cmt_modname |> String.split ~by:"." in
          (* let () =
@@ -231,7 +232,7 @@ let handle_si ~loc ~path:_ _payload =
           A.case
             ~lhs:(A.ppat_tuple ~loc [[%pat? file]; A.ppat_any ~loc; [%pat? id]])
             ~guard:None
-            ~rhs:[%expr failwith (Format.sprintf "unknwon type %s %d" file id)];
+            ~rhs:[%expr failwith (Format.sprintf "unknown type %s %d" file id)];
         ])
   in
   (* unsure why we have to prefix file with an underscore, or the compiler thinks it's unused *)
