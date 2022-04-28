@@ -540,32 +540,32 @@ let transform_binding_recursively cu b =
   in
   [{ b with pvb_expr = new_rhs1 }]
 
+let all_function_bindings bs =
+  List.for_all
+    (fun b ->
+      match b.pvb_expr.pexp_desc with
+      | Pexp_fun _ | Pexp_function _ -> true
+      | _ -> false)
+    bs
+
 let transform_bindings comp_unit rec_flag bindings =
-  match rec_flag with
-  | Recursive ->
-    List.concat_map
-      (fun b -> transform_binding_recursively comp_unit b)
-      bindings
-  | Nonrecursive ->
-    List.concat_map
-      (fun b -> transform_binding_nonrecursively comp_unit b)
-      bindings
+  if not (all_function_bindings bindings) then bindings
+  else
+    match rec_flag with
+    | Recursive ->
+      List.concat_map
+        (fun b -> transform_binding_recursively comp_unit b)
+        bindings
+    | Nonrecursive ->
+      List.concat_map
+        (fun b -> transform_binding_nonrecursively comp_unit b)
+        bindings
 
 let traverse comp_unit =
   object
     inherit Ast_traverse.map (* _with_expansion_context *) as super
 
     method! expression e =
-      (* print_endline "expr";
-         print_endline (Expansion_context.Base.tool_name ctx);
-         print_endline (Expansion_context.Base.input_name ctx);
-         let cp = Expansion_context.Base.code_path ctx in
-         print_endline (Code_path.file_path cp);
-         print_endline (Code_path.main_module_name cp);
-         Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp);
-         Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp);
-         print_endline (Code_path.fully_qualified_path cp);
-         print_endline (Code_path.to_string_path cp); *)
       match e with
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); _ } ->
         {
@@ -591,60 +591,108 @@ let traverse comp_unit =
       | _ -> si
   end
 
-let handle_si ~ctxt str =
-  (* Expansion_context.Extension.code_path ctxt *)
-  let cp = Expansion_context.Extension.code_path ctxt in
-  let comp_unit = Code_path.file_path cp in
+let () =
+  Driver.register_transformation
+    ~impl:(fun s ->
+      let file =
+        match s with
+        | [] -> failwith "nothing to translate"
+        | { pstr_loc; _ } :: _ -> pstr_loc.loc_start.pos_fname
+      in
+      (traverse file)#structure s)
+    "ppx_debug"
 
-  (* source file *)
-  (* print_endline (Code_path.file_path cp); *)
-  (* compilation unit *)
-  (* print_endline (Code_path.main_module_name cp); *)
-  (* prob useful *)
-  (* Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp); *)
-  (* unsure *)
-  (* Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp); *)
-  (* same as compilation unit? *)
-  (* print_endline (Code_path.fully_qualified_path cp); *)
+(** old code based on extension nodes *)
+module ExtensionNode = struct
+  let traverse comp_unit =
+    object
+      inherit Ast_traverse.map (* _with_expansion_context *) as super
 
-  (* same as file path? *)
-  (* print_endline (Code_path.to_string_path cp); *)
+      method! expression e =
+        (* print_endline "expr";
+           print_endline (Expansion_context.Base.tool_name ctx);
+           print_endline (Expansion_context.Base.input_name ctx);
+           let cp = Expansion_context.Base.code_path ctx in
+           print_endline (Code_path.file_path cp);
+           print_endline (Code_path.main_module_name cp);
+           Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp);
+           Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp);
+           print_endline (Code_path.fully_qualified_path cp);
+           print_endline (Code_path.to_string_path cp); *)
+        match e with
+        | { pexp_desc = Pexp_let (rec_flag, bindings, body); _ } ->
+          {
+            e with
+            pexp_desc =
+              Pexp_let
+                ( Nonrecursive,
+                  transform_bindings comp_unit rec_flag bindings,
+                  body );
+          }
+        | _ -> e
 
-  (* print_endline "str"; *)
-  (* path is the file path. which might be sufficient for uniqueness... *)
-  (* TODO go up until git, since this will reside in dune build dir *)
-  (* let config = Util.read_config () in *)
-  (* if config.debug then *)
-  (traverse comp_unit)#structure_item str
-(* else *)
-(* str *)
+      method! structure_item si =
+        (* print_endline "str"; *)
+        (* print_endline path; *)
+        let si = super#structure_item si in
+        match si with
+        | { pstr_desc = Pstr_value (rec_flag, bindings); _ } ->
+          (* handle mutual recursion *)
+          let flag =
+            match bindings with [_] -> Nonrecursive | _ -> rec_flag
+          in
+          Ast_helper.Str.value flag
+            (transform_bindings comp_unit rec_flag bindings)
+        | _ -> si
+    end
 
-let handle_expr ~ctxt expr =
-  let cp = Expansion_context.Extension.code_path ctxt in
-  let comp_unit = Code_path.file_path cp in
-  (* print_endline "expr"; *)
-  (* let config = Util.read_config () in *)
-  (* if config.debug then *)
-  (traverse comp_unit)#expression expr
-(* else *)
-(* expr *)
+  let handle_si ~ctxt str =
+    (* Expansion_context.Extension.code_path ctxt *)
+    let cp = Expansion_context.Extension.code_path ctxt in
+    let comp_unit = Code_path.file_path cp in
 
-(* let rule =
-   Ppxlib.Context_free.Rule.extension
-     (Extension.declare "trace" Structure_item
-        Ast_pattern.(pstr (__ ^:: nil))
-        handle_si) *)
+    (* source file *)
+    (* print_endline (Code_path.file_path cp); *)
+    (* compilation unit *)
+    (* print_endline (Code_path.main_module_name cp); *)
+    (* prob useful *)
+    (* Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp); *)
+    (* unsure *)
+    (* Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp); *)
+    (* same as compilation unit? *)
+    (* print_endline (Code_path.fully_qualified_path cp); *)
 
-let rule =
-  Ppxlib.Context_free.Rule.extension
-    (Extension.V3.declare "trace" Structure_item
-       Ast_pattern.(pstr (__ ^:: nil))
-       handle_si)
+    (* same as file path? *)
+    (* print_endline (Code_path.to_string_path cp); *)
 
-let rule_expr =
-  Ppxlib.Context_free.Rule.extension
-    (Extension.V3.declare "trace" Extension.Context.expression
-       Ast_pattern.(single_expr_payload __)
-       handle_expr)
+    (* print_endline "str"; *)
+    (* path is the file path. which might be sufficient for uniqueness... *)
+    (* TODO go up until git, since this will reside in dune build dir *)
+    (* let config = Util.read_config () in *)
+    (* if config.debug then *)
+    (traverse comp_unit)#structure_item str
+  (* else *)
+  (* str *)
 
-let () = Driver.register_transformation ~rules:[rule; rule_expr] "ppx_debug"
+  let handle_expr ~ctxt expr =
+    let cp = Expansion_context.Extension.code_path ctxt in
+    let comp_unit = Code_path.file_path cp in
+    (* let config = Util.read_config () in *)
+    (* if config.debug then *)
+    (traverse comp_unit)#expression expr
+
+  let rule =
+    Ppxlib.Context_free.Rule.extension
+      (Extension.V3.declare "trace" Structure_item
+         Ast_pattern.(pstr (__ ^:: nil))
+         handle_si)
+
+  let rule_expr =
+    Ppxlib.Context_free.Rule.extension
+      (Extension.V3.declare "trace" Extension.Context.expression
+         Ast_pattern.(single_expr_payload __)
+         handle_expr)
+
+  let unused () =
+    Driver.register_transformation ~rules:[rule; rule_expr] "ppx_debug"
+end

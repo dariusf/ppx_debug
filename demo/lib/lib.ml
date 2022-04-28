@@ -29,20 +29,33 @@ let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "out"
    print_endline "res";
    res *)
 
-let%trace rec fib n =
-  match n with _ when n <= 0 -> 1 | _ -> fib (n - 1) + fib (n - 2)
 (* let%trace rec fact n = match n with _ when n <= 0 -> 1 | _ -> n * fact (n - 1) *)
+(* let%trace rec fib n =
+   match n with _ when n <= 0 -> 1 | _ -> fib (n - 1) + fib (n - 2) *)
+let rec fib n =
+  match n with _ when n <= 0 -> 1 | _ -> fib (n - 1) + fib (n - 2)
 
-let%trace f x =
+let f x =
   fib 3 |> ignore;
   (* fact 3 |> ignore; *)
   x + 1
 
-let%trace f1 (x : b) (y : b) =
+let f1 (x : b) (y : b) =
   fib 3 |> ignore;
   (* fact 3 |> ignore; *)
   ignore x;
   ignore y
+
+(* let%trace f x =
+     fib 3 |> ignore;
+     (* fact 3 |> ignore; *)
+     x + 1
+
+   let%trace f1 (x : b) (y : b) =
+     fib 3 |> ignore;
+     (* fact 3 |> ignore; *)
+     ignore x;
+     ignore y *)
 
 (* let f1 x y =
    let f1_original (x : b) (y : b) =
