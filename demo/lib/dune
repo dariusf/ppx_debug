@@ -1,7 +1,8 @@
 (library
  (name lib)
  (libraries ppx_debug_runtime)
- (preprocess (pps ppx_debug ppx_deriving.show)))
+ (preprocess (pps ppx_deriving.show))
+ (instrumentation (backend ppx_debug)))
 
 (env
  (dev
