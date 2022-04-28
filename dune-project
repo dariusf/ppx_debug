@@ -19,3 +19,8 @@
  (name ppx_debug_tool)
  (synopsis "A ppx for debugging")
  (description "Debug away"))
+
+(package
+ (name ppx_debug_runtime)
+ (synopsis "A ppx for debugging")
+ (description "Debug away"))
