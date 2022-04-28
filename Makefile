@@ -5,6 +5,7 @@ export OCAMLRUNPARAM=b
 all:
 	dune test --display=short
 	# dune build @install
+	rm out.bin || true
 	dune exec --display=short ./demo/app/app.exe
 	dune build @check
 	dune exec --display=short ./demo/debug/debug.exe | tee chrome.json | jq .
