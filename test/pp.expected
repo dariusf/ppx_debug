@@ -4,11 +4,11 @@ let fact n =
   let rec aux n =
     Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"fact";
     (Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-       ~ppx_debug_id:("test.ml", "func", 0) "fact n" n;
+       ~ppx_debug_id:("test.ml", "func", 0) "n" n;
      ());
     (let res = fact_original aux n in
      Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-       ~ppx_debug_id:("test.ml", "func", 1) "fact res" res;
+       ~ppx_debug_id:("test.ml", "func", 1) "res" res;
      Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"fact";
      res) in
   aux n

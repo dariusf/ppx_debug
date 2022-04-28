@@ -368,12 +368,12 @@ let generate_value ~loc cu what v =
       [%e A.estring ~loc what]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
-let generate_arg ~loc cu what v =
+let generate_arg ~loc cu arg =
   [%expr
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
-      [%e A.estring ~loc what]
-      [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
+      [%e A.estring ~loc arg]
+      [%e A.pexp_ident ~loc { loc; txt = Lident arg }]]
 
 let generate_start ~loc what =
   [%expr
@@ -392,8 +392,7 @@ let run_invoc ~loc cu fn_expr fn_name params =
   let print_params =
     params
     |> List.filter_map (function
-         | Param { param = { txt = s; _ }; _ } ->
-           Some (generate_arg ~loc cu (Format.sprintf "%s %s" fn_name s) s)
+         | Param { param = { txt = s; _ }; _ } -> Some (generate_arg ~loc cu s)
          | Unit _ -> None)
   in
   let print_params =
@@ -413,9 +412,7 @@ let run_invoc ~loc cu fn_expr fn_name params =
            | Unit _ ->
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in
-  let print_res =
-    generate_arg ~loc cu (Format.sprintf "%s res" fn_name) "res"
-  in
+  let print_res = generate_arg ~loc cu "res" in
   [%expr
     [%e start];
     [%e print_params];
