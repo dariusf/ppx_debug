@@ -4,7 +4,6 @@
  ; unix ppx_deriving gen yojson
  (libraries ppxlib containers)
  (inline_tests)
- (instrumentation.backend (ppx ppx_debug))
  (preprocess
   (pps ppx_deriving.show ppx_expect ppxlib.metaquot)))
 
