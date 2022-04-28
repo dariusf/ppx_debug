@@ -2,6 +2,15 @@ module C = Config
 open Containers
 open Ppxlib
 
+(* logging the low-tech way *)
+let logfile =
+  (* IO.File.remove_noerr filename; *)
+  (* IO.File.make "/tmp/ppx_debug.txt" *)
+  IO.File.make (Sys.getcwd () ^ "/ppx_debug.txt")
+
+let log fmt =
+  Format.kasprintf (fun s -> IO.File.append_exn logfile (s ^ "\n")) fmt
+
 let p_si si = Format.printf "structure_item %a@." Pprintast.structure_item si
 let p_s s = Format.printf "structure %a@." Pprintast.structure s
 let p_e e = Format.printf "expression %a@." Pprintast.expression e
@@ -15,6 +24,14 @@ let dummy_loc =
     Location.loc_ghost = true;
   }
 
+module A = Ast_builder.Default
+
+(* thrown when we can't transform this function for legitimate reasons *)
+exception CannotTransform of string
+
+let cannot_transform fmt =
+  Format.ksprintf ?margin:None ~f:(fun s -> raise (CannotTransform s)) fmt
+
 let get_fn_name pat =
   match pat with
   | { ppat_desc = Ppat_var { txt = fn_name; _ }; _ } -> fn_name
@@ -25,8 +42,8 @@ let get_fn_name pat =
   } ->
     fn_name
   | _ ->
-    p_p pat;
-    failwith "not a function pattern"
+    (* log "hello"; *)
+    cannot_transform "not a function pattern"
 
 let fresh =
   let n = ref 0 in
@@ -93,11 +110,16 @@ let interesting_str_binding rec_flag binding =
   let attrs = binding.pvb_attributes in
   interesting_expr_binding rec_flag attrs binding
 
-let extract_binding_info b =
-  let { pvb_pat = original_lhs; pvb_expr = original_rhs; _ } = b in
-  let fn_name = get_fn_name original_lhs in
-  let params = collect_params original_rhs in
-  (original_rhs, fn_name, params)
+let extract_binding_info filename modname b =
+  try
+    let { pvb_pat = original_lhs; pvb_expr = original_rhs; _ } = b in
+    let fn_name = get_fn_name original_lhs in
+    let params = collect_params original_rhs in
+    (original_rhs, fn_name, params)
+  with Failure e ->
+    print_endline filename;
+    print_endline modname;
+    raise (Failure e)
 
 (** Recurses down a curried lambda to get the body *)
 let rec get_constrained_fn ?(loc = dummy_loc) pexp =
@@ -246,120 +268,12 @@ let interpret_type t =
     let a, b = List.take_drop (l - 1) a in
     (a, List.hd b)
 
-(* let rec generate_printer_typ t =
-   let containers = true in
-   let open Ast_helper in
-   let loc = dummy_loc in
-   match t with
-   | PType (Lident "int", []) ->
-     (match containers with
-     | true -> [%expr CCInt.pp]
-     | _ -> [%expr Format.pp_print_int])
-   | PType (Lident "float", []) ->
-     (match containers with
-     | true -> [%expr CCFloat.pp]
-     | _ -> [%expr Format.pp_print_float])
-   | PType (Lident "string", []) ->
-     (match containers with
-     | true -> [%expr CCString.pp]
-     | _ -> [%expr Format.pp_print_string])
-   | PType (Lident "option", [a]) ->
-     (match containers with
-     | true -> [%expr CCOpt.pp [%e generate_printer_typ a]]
-     | _ -> [%expr Format.pp_print_option [%e generate_printer_typ a]])
-   | PType (Lident "result", [a; b]) ->
-     (* can't use this as it specializes the second arg to string *)
-     (* (match containers with
-        | true ->
-          [%expr Result.pp [%e generate_printer_typ a] [%e generate_printer_typ b]]
-        | _ -> *)
-     [%expr
-       Format.pp_print_result ~ok:[%e generate_printer_typ a]
-         ~error:[%e generate_printer_typ b]]
-     (* ) *)
-   | PType (Lident "list", [a]) ->
-     (match containers with
-     | true ->
-       [%expr
-         CCList.pp
-           ~pp_start:(fun fmt () -> Format.fprintf fmt "[")
-           ~pp_stop:(fun fmt () -> Format.fprintf fmt "]")
-           ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
-           [%e generate_printer_typ a]]
-     | _ -> [%expr Format.pp_print_list [%e generate_printer_typ a]])
-   | PType (Lident name, args) ->
-     let fn = Exp.ident { txt = Lident ("pp_" ^ name); loc } in
-     let args =
-       args |> List.map generate_printer_typ |> List.map (fun e -> (Nolabel, e))
-     in
-     (match args with [] -> fn | _ -> Exp.apply fn args)
-   | PType (Ldot (m, "t"), args) ->
-     let fn = Exp.ident { txt = Ldot (m, "pp"); loc } in
-     let args =
-       args |> List.map generate_printer_typ |> List.map (fun e -> (Nolabel, e))
-     in
-     (* ensure we don't break parsetree invariants. this happens with a type like G.t, without args *)
-     (match args with [] -> fn | _ -> Exp.apply fn args)
-   | PType (Ldot (m, name), args) ->
-     let fn = Exp.ident { txt = Ldot (m, "pp_" ^ name); loc } in
-     let args =
-       args |> List.map generate_printer_typ |> List.map (fun e -> (Nolabel, e))
-     in
-     (match args with [] -> fn | _ -> Exp.apply fn args)
-     (* factor out *)
-   | PTuple args ->
-     let fn =
-       match List.length args with
-       | 2 ->
-         [%expr
-           Ppx_debug.Pair.pp
-             ~pp_start:(fun fmt () -> Format.fprintf fmt "(")
-             ~pp_stop:(fun fmt () -> Format.fprintf fmt ")")]
-       | 3 ->
-         [%expr
-           Ppx_debug.Triple.pp
-             ~pp_start:(fun fmt () -> Format.fprintf fmt "(")
-             ~pp_stop:(fun fmt () -> Format.fprintf fmt ")")]
-       | 4 ->
-         [%expr
-           Ppx_debug.Quad.pp
-             ~pp_start:(fun fmt () -> Format.fprintf fmt "(")
-             ~pp_stop:(fun fmt () -> Format.fprintf fmt ")")]
-       | 5 ->
-         [%expr
-           Ppx_debug.Quint.pp
-             ~pp_start:(fun fmt () -> Format.fprintf fmt "(")
-             ~pp_stop:(fun fmt () -> Format.fprintf fmt ")")]
-       | _ ->
-         failwith ("unsupported tuple length " ^ string_of_int (List.length args))
-     in
-     let args =
-       args |> List.map generate_printer_typ |> List.map (fun e -> (Nolabel, e))
-     in
-     let labelled =
-       [ (* (Labelled "start", [%expr fun fmt () -> Format.fprintf fmt "("]); *)
-         (* (Labelled "stop", [%expr fun fmt () -> Format.fprintf fmt ")"]); *) ]
-     in
-     Exp.apply fn (labelled @ args)
-     (* factor out *)
-   | PPoly _ ->
-     (* [%expr fun fmt _ -> Format.fprintf fmt "%s" "_"] *)
-     [%expr Ppx_debug.pp_const "_polymorphic"]
-   | PPolyVariant -> [%expr Ppx_debug.pp_const "_poly_variant"]
-   | _ ->
-     Format.printf "%s@." (show_ptype t);
-     failwith "generate_printer_typ: unrecognized type" *)
-
-(* let pppp fmt _ = Format.fprintf fmt "%s" "<abstr>" *)
-
 let ids = ref 0
 
 let fresh () =
   let r = !ids in
   incr ids;
   r
-
-module A = Ast_builder.Default
 
 let generate_value ~loc cu what v =
   [%expr
@@ -446,108 +360,101 @@ let should_transform config modname fn =
     | Modules m -> List.mem ~eq:String.equal modname m
 
 let transform_binding_nonrecursively config filename modname b =
-  let original_rhs, fn_name, params = extract_binding_info b in
-  if not (should_transform config modname fn_name) then [b]
-  else
-    let original_fn_body, loc =
-      let body, loc = get_constrained_fn original_rhs in
-      let tr = app_traverse fn_name (mangle fn_name) in
-      (* this is needed in the nonrecursive case because this may be used for recursive fns *)
-      let new_body = tr#expression body in
-      (new_body, loc)
-    in
+  let original_rhs, fn_name, params = extract_binding_info filename modname b in
+  if not (should_transform config modname fn_name) then
+    cannot_transform "%s %s not transformed due to config" modname fn_name;
+  let original_fn_body, loc =
+    let body, loc = get_constrained_fn original_rhs in
+    let tr = app_traverse fn_name (mangle fn_name) in
+    (* this is needed in the nonrecursive case because this may be used for recursive fns *)
+    let new_body = tr#expression body in
+    (new_body, loc)
+  in
 
-    (* let arg_types, result_type = interpret_type typ in *)
-    (* let arg_printers = *)
-    (* failwith "nyi" *)
-    (* List.map generate_printer_typ arg_types *)
-    (* List.map *)
-    (* in *)
-    (* let result_printer = failwith "nyi" generate_printer_typ result_type in *)
-    (* the entire new rhs *)
-    let new_rhs1 =
-      let open Ast_helper in
-      let ps =
-        params
-        (* |> List.map (fun p ->
-               match p with
-               | Param {param; label} -> `Param {label; param={ txt = s; loc = dummy_loc }}
-               | Unit _ -> `Unit) *)
-      in
-      fun_with_params ~loc ps
-        (Exp.let_ Nonrecursive
-           [
-             Ast_builder.Default.value_binding ~loc
-               ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
-               ~expr:original_fn_body;
-           ]
-           (run_invoc ~loc filename (ident (mangle fn_name)) fn_name params))
+  (* the entire new rhs *)
+  let new_rhs1 =
+    let open Ast_helper in
+    let ps =
+      params
+      (* |> List.map (fun p ->
+             match p with
+             | Param {param; label} -> `Param {label; param={ txt = s; loc = dummy_loc }}
+             | Unit _ -> `Unit) *)
     in
-    [{ b with pvb_expr = new_rhs1 }]
+    fun_with_params ~loc ps
+      (Exp.let_ Nonrecursive
+         [
+           Ast_builder.Default.value_binding ~loc
+             ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
+             ~expr:original_fn_body;
+         ]
+         (run_invoc ~loc filename (ident (mangle fn_name)) fn_name params))
+  in
+  [{ b with pvb_expr = new_rhs1 }]
 
 let transform_binding_recursively config filename modname b =
-  let original_rhs, fn_name, params = extract_binding_info b in
-  if not (should_transform config modname fn_name) then [b]
-  else
-    let original_fn_body, loc =
-      let body, loc = get_constrained_fn original_rhs in
-      let tr = app_traverse fn_name "self" in
-      let new_body = tr#expression body in
+  let original_rhs, fn_name, params = extract_binding_info filename modname b in
+  if not (should_transform config modname fn_name) then
+    cannot_transform "%s %s not transformed due to config" modname fn_name;
+  let original_fn_body, loc =
+    let body, loc = get_constrained_fn original_rhs in
+    let tr = app_traverse fn_name "self" in
+    let new_body = tr#expression body in
 
-      ( fun_with_params ~loc
-          [
-            Param
-              {
-                param = { txt = "self"; loc = dummy_loc };
-                label = (Nolabel, None);
-              };
-          ]
-          new_body,
-        loc )
-    in
+    ( fun_with_params ~loc
+        [
+          Param
+            {
+              param = { txt = "self"; loc = dummy_loc };
+              label = (Nolabel, None);
+            };
+        ]
+        new_body,
+      loc )
+  in
 
-    (* let arg_types, result_type = interpret_type typ in *)
-    (* let arg_printers =
-         failwith "nyi"
-         (* List.map generate_printer_typ arg_types *)
-       in *)
-    (* let result_printer = failwith "nyi" generate_printer_typ result_type in *)
-    (* the entire new rhs *)
-    let new_rhs1 =
-      let open Ast_helper in
-      let run =
-        run_invoc ~loc filename
-          (* ~fn_expr: *)
-          [%expr [%e ident (mangle fn_name)] aux]
-          fn_name params
-        (* arg_printers result_printer *)
-      in
-      let ps1 =
-        params
-        |> List.map (fun p ->
-               match p with
-               | Param { param; label = label, _ } ->
-                 (* optional args don't seem to be supported by Exp.apply? *)
-                 (label, ident ~loc param.txt)
-               | Unit { label = label, _ } -> (label, [%expr ()]))
-      in
-      let aux = ident ~loc "aux" in
-      fun_with_params ~loc params
-        (Exp.let_ Nonrecursive
-           [
-             Ast_builder.Default.value_binding ~loc
-               ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
-               ~expr:original_fn_body;
-           ]
-           (Exp.let_ Recursive
-              [
-                Ast_builder.Default.value_binding ~loc
-                  ~pat:(Pat.var { txt = "aux"; loc = dummy_loc })
-                  ~expr:(fun_with_params ~loc params run);
-              ]
-              (Exp.apply ~loc aux ps1)))
+  (* let arg_types, result_type = interpret_type typ in *)
+  (* let arg_printers =
+       failwith "nyi"
+       (* List.map generate_printer_typ arg_types *)
+     in *)
+  (* let result_printer = failwith "nyi" generate_printer_typ result_type in *)
+  (* the entire new rhs *)
+  let new_rhs1 =
+    let open Ast_helper in
+    let run =
+      run_invoc ~loc filename
+        (* ~fn_expr: *)
+        [%expr [%e ident (mangle fn_name)] aux]
+        fn_name params
+      (* arg_printers result_printer *)
     in
-    [{ b with pvb_expr = new_rhs1 }]
+    let ps1 =
+      params
+      |> List.map (fun p ->
+             match p with
+             | Param { param; label = label, _ } ->
+               (* optional args don't seem to be supported by Exp.apply? *)
+               (label, ident ~loc param.txt)
+             | Unit { label = label, _ } -> (label, [%expr ()]))
+    in
+    let aux = ident ~loc "aux" in
+    fun_with_params ~loc params
+      (Exp.let_ Nonrecursive
+         [
+           Ast_builder.Default.value_binding ~loc
+             ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
+             ~expr:original_fn_body;
+         ]
+         (Exp.let_ Recursive
+            [
+              Ast_builder.Default.value_binding ~loc
+                ~pat:(Pat.var { txt = "aux"; loc = dummy_loc })
+                ~expr:(fun_with_params ~loc params run);
+            ]
+            (Exp.apply ~loc aux ps1)))
+  in
+  [{ b with pvb_expr = new_rhs1 }]
 
 let all_function_bindings bs =
   List.for_all
@@ -558,17 +465,17 @@ let all_function_bindings bs =
     bs
 
 let transform_bindings filename modname config rec_flag bindings =
-  if not (all_function_bindings bindings) then bindings
-  else
-    match rec_flag with
-    | Recursive ->
-      List.concat_map
-        (fun b -> transform_binding_recursively config filename modname b)
-        bindings
-    | Nonrecursive ->
-      List.concat_map
-        (fun b -> transform_binding_nonrecursively config filename modname b)
-        bindings
+  if not (all_function_bindings bindings) then
+    cannot_transform "not all are bindings";
+  match rec_flag with
+  | Recursive ->
+    List.concat_map
+      (fun b -> transform_binding_recursively config filename modname b)
+      bindings
+  | Nonrecursive ->
+    List.concat_map
+      (fun b -> transform_binding_nonrecursively config filename modname b)
+      bindings
 
 let traverse filename modname config =
   object
@@ -576,15 +483,23 @@ let traverse filename modname config =
 
     method! expression e =
       match e with
-      | { pexp_desc = Pexp_let (rec_flag, bindings, body); _ } ->
-        {
-          e with
-          pexp_desc =
-            Pexp_let
-              ( Nonrecursive,
-                transform_bindings filename modname config rec_flag bindings,
-                body );
-        }
+      | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
+        ->
+        begin
+          try
+            {
+              e with
+              pexp_desc =
+                Pexp_let
+                  ( Nonrecursive,
+                    transform_bindings filename modname config rec_flag bindings,
+                    body );
+            }
+          with
+          | CannotTransform _s -> e
+          | Failure s ->
+            A.pexp_extension ~loc (Location.error_extensionf ~loc "%s" s)
+        end
       | _ -> e
 
     method! structure_item si =
@@ -592,11 +507,23 @@ let traverse filename modname config =
       (* print_endline path; *)
       let si = super#structure_item si in
       match si with
-      | { pstr_desc = Pstr_value (rec_flag, bindings); _ } ->
+      | { pstr_desc = Pstr_value (rec_flag, bindings); pstr_loc = loc; _ } ->
         (* handle mutual recursion *)
         let flag = match bindings with [_] -> Nonrecursive | _ -> rec_flag in
-        Ast_helper.Str.value flag
-          (transform_bindings filename modname config rec_flag bindings)
+        begin
+          try
+            Ast_helper.Str.value flag
+              (transform_bindings filename modname config rec_flag bindings)
+          with
+          | CannotTransform _s -> si
+          | Failure s ->
+            A.pstr_extension ~loc (Location.error_extensionf ~loc "%s" s) []
+            (* A.pstr_value ~loc Nonrecursive
+               [
+                 A.value_binding ~loc ~pat:(A.ppat_any ~loc)
+                   ~expr:;
+               ] *)
+        end
       | _ -> si
   end
 
@@ -618,99 +545,3 @@ let () =
            (traverse filename modname config)#structure s)
          ~position:After)
     "ppx_debug"
-
-(** old code based on extension nodes *)
-module ExtensionNode = struct
-  let traverse filename =
-    object
-      inherit Ast_traverse.map (* _with_expansion_context *) as super
-
-      method! expression e =
-        (* print_endline "expr";
-           print_endline (Expansion_context.Base.tool_name ctx);
-           print_endline (Expansion_context.Base.input_name ctx);
-           let cp = Expansion_context.Base.code_path ctx in
-           print_endline (Code_path.file_path cp);
-           print_endline (Code_path.main_module_name cp);
-           Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp);
-           Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp);
-           print_endline (Code_path.fully_qualified_path cp);
-           print_endline (Code_path.to_string_path cp); *)
-        match e with
-        | { pexp_desc = Pexp_let (rec_flag, bindings, body); _ } ->
-          {
-            e with
-            pexp_desc =
-              Pexp_let
-                ( Nonrecursive,
-                  transform_bindings filename "module" C.default rec_flag
-                    bindings,
-                  body );
-          }
-        | _ -> e
-
-      method! structure_item si =
-        (* print_endline "str"; *)
-        (* print_endline path; *)
-        let si = super#structure_item si in
-        match si with
-        | { pstr_desc = Pstr_value (rec_flag, bindings); _ } ->
-          (* handle mutual recursion *)
-          let flag =
-            match bindings with [_] -> Nonrecursive | _ -> rec_flag
-          in
-          Ast_helper.Str.value flag
-            (transform_bindings filename "module" C.default rec_flag bindings)
-        | _ -> si
-    end
-
-  let handle_si ~ctxt str =
-    (* Expansion_context.Extension.code_path ctxt *)
-    let cp = Expansion_context.Extension.code_path ctxt in
-    let comp_unit = Code_path.file_path cp in
-
-    (* source file *)
-    (* print_endline (Code_path.file_path cp); *)
-    (* compilation unit *)
-    (* print_endline (Code_path.main_module_name cp); *)
-    (* prob useful *)
-    (* Format.printf "%a@." (List.pp String.pp) (Code_path.submodule_path cp); *)
-    (* unsure *)
-    (* Format.printf "%a@." (Option.pp String.pp) (Code_path.value cp); *)
-    (* same as compilation unit? *)
-    (* print_endline (Code_path.fully_qualified_path cp); *)
-
-    (* same as file path? *)
-    (* print_endline (Code_path.to_string_path cp); *)
-
-    (* print_endline "str"; *)
-    (* path is the file path. which might be sufficient for uniqueness... *)
-    (* TODO go up until git, since this will reside in dune build dir *)
-    (* let config = Util.read_config () in *)
-    (* if config.debug then *)
-    (traverse comp_unit)#structure_item str
-  (* else *)
-  (* str *)
-
-  let handle_expr ~ctxt expr =
-    let cp = Expansion_context.Extension.code_path ctxt in
-    let comp_unit = Code_path.file_path cp in
-    (* let config = Util.read_config () in *)
-    (* if config.debug then *)
-    (traverse comp_unit)#expression expr
-
-  let rule =
-    Ppxlib.Context_free.Rule.extension
-      (Extension.V3.declare "trace" Structure_item
-         Ast_pattern.(pstr (__ ^:: nil))
-         handle_si)
-
-  let rule_expr =
-    Ppxlib.Context_free.Rule.extension
-      (Extension.V3.declare "trace" Extension.Context.expression
-         Ast_pattern.(single_expr_payload __)
-         handle_expr)
-
-  let unused () =
-    Driver.register_transformation ~rules:[rule; rule_expr] "ppx_debug"
-end

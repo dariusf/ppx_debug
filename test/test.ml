@@ -18,6 +18,7 @@ let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "test"
    aux n *)
 
 let rec fact n = match n with 0 -> 1 | n -> n * fact (n - 1)
+let _ = fun () -> ()
 
 (*
    let a n =

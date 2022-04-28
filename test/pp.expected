@@ -12,3 +12,4 @@ let fact n =
      Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"fact";
      res) in
   aux n
+let _ = fun () -> ()
