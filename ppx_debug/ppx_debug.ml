@@ -256,14 +256,14 @@ let fresh () =
   r
 
 (* for now, we get ppx_debug_file by reading the environment, but removing that allows users to configure it through changing source *)
-let generate_value ~loc cu what v =
+let generate_value ~loc cu v =
   [%expr
     let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
       Ppx_debug_runtime.Config.read ()
     in
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
-      [%e A.estring ~loc what]
+      [%e A.estring ~loc v]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
 let generate_arg ~loc cu arg =

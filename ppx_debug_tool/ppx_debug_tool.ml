@@ -85,7 +85,7 @@ let rec create_pp_fn ~loc qual exp_type =
   | Tconstr (Pident ident, _, _) when String.equal (Ident.name ident) "bool" ->
     (match variant with
     | Containers -> [%expr CCString.pp]
-    | Stdlib -> [%expr Format.pp_print_string])
+    | Stdlib -> [%expr Format.pp_print_bool])
   | Tconstr (Pident ident, _, _) when String.equal (Ident.name ident) "string"
     ->
     (match variant with
@@ -121,15 +121,22 @@ let rec create_pp_fn ~loc qual exp_type =
   | Tconstr (Pident ident, [], _) when String.equal (Ident.name ident) "unit" ->
     [%expr fun fmt () -> Format.fprintf fmt "()"]
     (* the following two cases are the same except for the qualifiers *)
-  | Tconstr (Pdot (_q, ident), args, _) ->
+  | Tconstr (Pdot (q, ident), args, _) ->
+    (* qual is where the use of the type is found, q is where the type is defined *)
+    (* TOOD existing uses of qual are probably wrong *)
+    let rec path_to_lident p =
+      match p with
+      | Path.Pdot (p, s) -> Longident.Ldot (path_to_lident p, s)
+      | Pident i -> Lident (Ident.name i)
+      | Papply _ -> failwith "no correspondence"
+    in
     let f =
       A.pexp_ident ~loc
         {
           loc;
           txt =
             Ldot
-              ( qual,
-                (* or q?*)
+              ( path_to_lident q,
                 match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
         }
     in
@@ -236,7 +243,8 @@ let handle_expr modname it expr =
        | Some typ -> *)
     let () =
       let f, _, id = site_id in
-      log "%s %d -> %a" f id (Option.pp Ppxlib.Pprintast.core_type) typ
+      log "%s %d -> %a %a" f id Printtyp.type_expr exp_type
+        Ppxlib.Pprintast.expression pp_fn
     in
     id_type_mappings := (site_id, { pp_fn; typ }) :: !id_type_mappings
     (* | None -> ()

@@ -30,6 +30,7 @@ let default =
     mode = All [];
     file = "debug.trace";
     ppx_logging = false;
+    (* false; *)
     internal_log = "/tmp/ppx_debug.txt";
     internal_tool_log = "/tmp/ppx_debug_tool.txt";
     variant = Stdlib;
