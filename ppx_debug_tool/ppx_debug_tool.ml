@@ -234,6 +234,10 @@ let handle_expr modname it expr =
     (* begin
        match typ with
        | Some typ -> *)
+    let () =
+      let f, _, id = site_id in
+      log "%s %d -> %a" f id (Option.pp Ppxlib.Pprintast.core_type) typ
+    in
     id_type_mappings := (site_id, { pp_fn; typ }) :: !id_type_mappings
     (* | None -> ()
        end *)
