@@ -11,6 +11,9 @@ let labelled ~l () = l
 let optional ?(l = 1) () = l
 let optional_opt ?l () = l
 
+let rec ping : int -> int = fun n -> match n with 0 -> 1 | _ -> pong (n - 1)
+and pong : int -> int = fun n -> match n with 0 -> 1 | _ -> ping (n - 1)
+
 (*
    let a n =
      let%trace rec aux : 'a -> int -> int =
@@ -36,10 +39,6 @@ let optional_opt ?l () = l
             Int.pp in
         aux n *)
 
-   let%trace rec ping : int -> int =
-    fun n -> match n with 0 -> 1 | _ -> pong (n - 1)
-
-   and pong : int -> int = fun n -> match n with 0 -> 1 | _ -> ping (n - 1)
 
    module G = struct
      type t = int

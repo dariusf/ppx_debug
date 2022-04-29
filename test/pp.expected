@@ -81,3 +81,47 @@ let optional_opt ?l  () =
       Ppx_debug_runtime.Config.read () in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"optional_opt");
    res)
+let rec ping : int -> int =
+  fun n ->
+    let ping_original self n = match n with | 0 -> 1 | _ -> pong (n - 1) in
+    let rec aux n =
+      (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+         Ppx_debug_runtime.Config.read () in
+       Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"ping");
+      ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:("test.ml", "func", 8) "n" n);
+       ());
+      (let res = ping_original aux n in
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:("test.ml", "func", 9) "res" res);
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"ping");
+       res) in
+    aux n
+and pong : int -> int =
+  fun n ->
+    let pong_original self n = match n with | 0 -> 1 | _ -> ping (n - 1) in
+    let rec aux n =
+      (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+         Ppx_debug_runtime.Config.read () in
+       Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"pong");
+      ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:("test.ml", "func", 10) "n" n);
+       ());
+      (let res = pong_original aux n in
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:("test.ml", "func", 11) "res" res);
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"pong");
+       res) in
+    aux n

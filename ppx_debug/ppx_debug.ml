@@ -453,12 +453,15 @@ let transform_binding_recursively config filename modname b =
   [{ b with pvb_expr = new_rhs1 }]
 
 let all_function_bindings bs =
-  List.for_all
-    (fun b ->
-      match b.pvb_expr.pexp_desc with
-      | Pexp_fun _ | Pexp_function _ -> true
-      | _ -> false)
-    bs
+  let rec is_func e =
+    match e.pexp_desc with
+    | Pexp_fun _ | Pexp_function _ -> true
+    | Pexp_constraint (e, _) ->
+      (* (let f : t = fun x -> x) is actually (let f = ((fun x -> x) : t)) *)
+      is_func e
+    | _ -> false
+  in
+  List.for_all (fun b -> is_func b.pvb_expr) bs
 
 let transform_bindings filename modname config rec_flag bindings =
   if not (all_function_bindings bindings) then
