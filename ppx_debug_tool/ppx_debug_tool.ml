@@ -221,6 +221,9 @@ let handle_expr modname it expr =
       in
       e.exp_type
     in
+    (* undo the mangling dune does to get a path we can refer to values with *)
+    let demangle mn = String.split ~by:"__" mn in
+    let modname = List.concat_map demangle modname in
     let qual =
       match modname with
       | [] -> failwith "modname cannot be empty"
@@ -262,6 +265,7 @@ let walk_build_dir () =
        | `File, s when String.ends_with ~suffix:"cmt" s && should_ignore s ->
          (* print_endline s; *)
          let cmt = Cmt_format.read_cmt s in
+         (* TODO does this do anything? *)
          let modname = cmt.cmt_modname |> String.split ~by:"." in
          (* let () =
               match cmt.cmt_sourcefile with
