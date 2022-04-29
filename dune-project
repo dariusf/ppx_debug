@@ -12,15 +12,22 @@
 
 (package
  (name ppx_debug)
+ (version 0.1)
  (synopsis "A ppx for debugging")
- (description "Debug away"))
+ (description "Debug away")
+ (depends
+   (ppx_debug_runtime (= 0.1))))
 
 (package
  (name ppx_debug_tool)
+ (version 0.1)
  (synopsis "A ppx for debugging")
- (description "Debug away"))
+ (description "Debug away")
+ (depends
+   (ppx_debug_runtime (= 0.1))))
 
 (package
  (name ppx_debug_runtime)
+ (version 0.1)
  (synopsis "A ppx for debugging")
  (description "Debug away"))
