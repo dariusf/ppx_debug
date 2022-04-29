@@ -44,9 +44,8 @@ let parse s =
       | ["enabled"; "true"] -> { t with enabled = true }
       | ["enabled"; "false"] -> { t with enabled = false }
       | ["file"; f] -> { t with file = f }
-      (* only needs to be enabled in development, for now *)
-      (* | ["log"; "true"] -> { t with ppx_logging = true } *)
-      (* | ["log"; "false"] -> { t with ppx_logging = false } *)
+      | ["log"; "true"] -> { t with ppx_logging = true }
+      | ["log"; "false"] -> { t with ppx_logging = false }
       | ["variant"; "containers"] -> { t with variant = Containers }
       | ["variant"; "stdlib"] -> { t with variant = Stdlib }
       | ["mode"; v] ->
