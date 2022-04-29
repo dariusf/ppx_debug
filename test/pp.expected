@@ -22,3 +22,20 @@ let _ = fun () -> ()
 type v =
   | Root of {
   value: int } 
+let labelled ~l  () =
+  let labelled_original ~l  () = l in
+  (let config = Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file:(config.file)
+     ~func:"labelled");
+  ((let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+      ~ppx_debug_id:("test.ml", "func", 2) "l" l);
+   ());
+  (let res = labelled_original l () in
+   (let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+      ~ppx_debug_id:("test.ml", "func", 3) "res" res);
+   (let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file:(config.file)
+      ~func:"labelled");
+   res)
