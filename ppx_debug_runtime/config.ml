@@ -8,9 +8,10 @@ type mode =
 type t = {
   enabled : bool;
   mode : mode;
+  file : string;
 }
 
-let default = { enabled = true; mode = All [] }
+let default = { enabled = true; mode = All []; file = "debug.trace" }
 
 (* mode=All,f,g; blah=a,b,c *)
 let parse s =
@@ -31,5 +32,17 @@ let parse s =
       | _ -> failwith "unable to parse")
     kvps default
 
-let read () =
-  match Sys.getenv_opt "PPX_DEBUG" with None -> default | Some s -> parse s
+(* memoize because this may be called many times and environment variables don't change *)
+let read =
+  let config = ref None in
+  fun () ->
+    match !config with
+    | None ->
+      let c =
+        match Sys.getenv_opt "PPX_DEBUG" with
+        | None -> default
+        | Some s -> parse s
+      in
+      config := Some c;
+      c
+    | Some c -> c

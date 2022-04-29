@@ -1,7 +1,9 @@
 [%%generate read_and_print_value]
 
 let () =
-  let trace = Ppx_debug_runtime.Trace.read ~read_and_print_value "out.bin" in
+  let trace =
+    Ppx_debug_runtime.Trace.read ~read_and_print_value "debug.trace"
+  in
 
   (* trace
      |> List.iter (fun e ->

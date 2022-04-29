@@ -5,12 +5,11 @@ export OCAMLRUNPARAM=b
 all:
 	dune test --display=short
 	# dune build @install
-	rm out.bin || true
+	rm debug.trace || true
 	dune exec --display=short ./demo/app/app.exe
 	dune build @check
 	dune exec --display=short ./demo/debug/debug.exe | tee chrome.json | jq .
 
 .PHONY: w
 w:
-	dune exec ./demo/debug/debug.exe
-	# --watch --display=short --terminal-persistence=clear-on-rebuild
+	dune exec --watch --display=short --terminal-persistence=clear-on-rebuild ./demo/debug/debug.exe

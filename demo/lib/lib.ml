@@ -7,7 +7,6 @@ type b =
 [@@deriving show { with_path = false }]
 
 (* let f x = x + 1 *)
-let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "out"
 
 (* let show_int = string_of_int *)
 (* let show_unit () = "()" *)
@@ -79,7 +78,7 @@ let main () =
   let y = C ("test", 7) in
 
   (* let open Ppx_debug_runtime in *)
-  (* Trace.to_file "out.bin" (fun ppx_debug_file -> *)
+  (* Trace.to_file "debug.trace" (fun ppx_debug_file -> *)
   (* Trace.emit_value ~ppx_debug_file
        ~ppx_debug_id:(__FILE__, __FUNCTION__, 3)
        x;

@@ -46,7 +46,7 @@ let new_channel c = c
 
 let lazy_init c =
   if not (List.mem_assoc c !open_channels) then (
-    let f = open_out_bin (c ^ ".bin") in
+    let f = open_out_bin c in
     at_exit (fun () -> close_out f);
     open_channels := (c, f) :: !open_channels;
     f)

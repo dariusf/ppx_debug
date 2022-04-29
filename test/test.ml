@@ -1,22 +1,4 @@
-(* open Containers *)
-(* module Tracing = Ppx_debug.Tracing_simple *)
-
 let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "test"
-
-(* let fact n =
-   let fact_original self n = match n with 0 -> 1 | n -> n * self (n - 1) in
-   let rec aux n =
-     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
-       ~ppx_debug_id:("test/test.ml", "func", 0)
-       n;
-     let res = fact_original aux n in
-     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
-       ~ppx_debug_id:("test/test.ml", "func", 1)
-       res;
-     res
-   in
-   aux n *)
-
 let rec fact n = match n with 0 -> 1 | n -> n * fact (n - 1)
 let _ = fun () -> ()
 

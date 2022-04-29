@@ -1,4 +1,4 @@
-module C = Config
+module C = Ppx_debug_runtime.Config
 open Containers
 open Ppxlib
 
@@ -136,25 +136,6 @@ let app_traverse find replace =
     method! expression expr =
       let expr = super#expression expr in
       match expr with
-      (* | {
-          pexp_desc =
-            Pexp_apply
-              ({ pexp_desc = Pexp_ident { txt = Lident fn_name; loc }; _ }, args);
-          _;
-         }
-           when String.equal fn_name find ->
-           Exp.apply ~loc (Exp.ident ~loc { txt = Lident replace; loc }) args
-         | {
-          pexp_desc =
-            Pexp_apply
-              ( { pexp_desc = Pexp_ident { txt = Ldot (initial, fn_name); loc }; _ },
-                args );
-          _;
-         }
-           when String.equal fn_name find ->
-           Exp.apply ~loc
-             (Exp.ident ~loc { txt = Ldot (initial, replace); loc })
-             args *)
       | { pexp_desc = Pexp_ident { txt = Lident fn_name; loc }; _ }
         when String.equal fn_name find ->
         Exp.ident ~loc { txt = Lident replace; loc }
@@ -275,28 +256,33 @@ let fresh () =
   incr ids;
   r
 
+(* for now, we get ppx_debug_file by reading the environment, but removing that allows users to configure it through changing source *)
 let generate_value ~loc cu what v =
   [%expr
-    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+    let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file:config.file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
       [%e A.estring ~loc what]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
 let generate_arg ~loc cu arg =
   [%expr
-    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+    let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:config.file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
       [%e A.estring ~loc arg]
       [%e A.pexp_ident ~loc { loc; txt = Lident arg }]]
 
 let generate_start ~loc what =
   [%expr
-    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+    let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file:config.file
       ~func:[%e A.estring ~loc what]]
 
 let generate_end ~loc what =
   [%expr
-    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+    let config = Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file:config.file
       ~func:[%e A.estring ~loc what]]
 
 let run_invoc ~loc cu fn_expr fn_name params =
@@ -413,12 +399,6 @@ let transform_binding_recursively config filename modname b =
       loc )
   in
 
-  (* let arg_types, result_type = interpret_type typ in *)
-  (* let arg_printers =
-       failwith "nyi"
-       (* List.map generate_printer_typ arg_types *)
-     in *)
-  (* let result_printer = failwith "nyi" generate_printer_typ result_type in *)
   (* the entire new rhs *)
   let new_rhs1 =
     let open Ast_helper in
