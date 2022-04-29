@@ -1,20 +1,31 @@
 let open_channels : (string * out_channel) list ref = ref []
 
 module Id = struct
-  type t = string * string * int [@@deriving show { with_path = false }]
+  type t = {
+    (* the combination of file (compilation unit) and id is sufficiently unique *)
+    file : string;
+    id : int;
+    (* extra fields *)
+    (* func : string; *)
+    (* modname : string; *)
+    line : int;
+  }
+  [@@deriving show { with_path = false }]
 
-  let serialize (fl, fu, id) = Format.sprintf "%s:%s:%d" fl fu id
+  let serialize { file; id; line } = Format.sprintf "%s:%d:%d" file id line
 
   let deserialize file =
-    Scanf.bscanf file "%s@:%s@:%d\n" @@ fun fl fu id -> (fl, fu, id)
+    Scanf.bscanf file "%s@:%d:%d\n" @@ fun file id line -> { file; id; line }
 
-  let show (fl, fu, id) = Format.sprintf "(file: %s, func: %s, id: %d)" fl fu id
+  let show { file; id; line } =
+    Format.sprintf "(file: %s, id: %d, line: %d)" file id line
 end
 
 (* really simple internal trace format. this is written in binary mode (via the emit_* functions, which marshal ocaml values) and read together with type metadata to unmarshal values (producing text) *)
 type event =
   | FrameStart of {
       time : int;
+      id : Id.t;
       func : string;
     }
   | Value of {
@@ -31,6 +42,7 @@ type event =
     }
   | FrameEnd of {
       time : int;
+      id : Id.t;
       func : string;
     }
 [@@deriving show { with_path = false }]
@@ -72,8 +84,13 @@ let get_time =
       t
     end
 
-let emit_start ~ppx_debug_file ~func =
-  Printf.fprintf (lazy_init ppx_debug_file) "start\n%d\n%s\n" (get_time ()) func
+let emit_start ~ppx_debug_file ~ppx_debug_id:id ~func =
+  Printf.fprintf (lazy_init ppx_debug_file) "start\n%s\n%d\n%s\n"
+    (Id.serialize id) (get_time ()) func
+
+let emit_end ~ppx_debug_file ~ppx_debug_id:id ~func =
+  Printf.fprintf (lazy_init ppx_debug_file) "end\n%s\n%d\n%s\n"
+    (Id.serialize id) (get_time ()) func
 
 let emit_raw ~ppx_debug_file ~ppx_debug_id:id typ what v =
   let s = Marshal.to_string v [] in
@@ -86,22 +103,21 @@ let emit_argument ~ppx_debug_file ~ppx_debug_id:id what v =
 let emit_value ~ppx_debug_file ~ppx_debug_id:id what v =
   emit_raw ~ppx_debug_file ~ppx_debug_id:id "value" what v
 
-let emit_end ~ppx_debug_file ~func =
-  Printf.fprintf (lazy_init ppx_debug_file) "end\n%d\n%s\n" (get_time ()) func
-
 let read ~read_and_print_value filename =
   let file = Scanf.Scanning.open_in_bin filename in
   let rec loop all =
     let typ = Scanf.bscanf file "%s@\n" (fun typ -> typ) in
     match typ with
     | "start" ->
+      let id = Id.deserialize file in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
       let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
-      loop (FrameStart { time; func } :: all)
+      loop (FrameStart { id; time; func } :: all)
     | "end" ->
+      let id = Id.deserialize file in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
       let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
-      loop (FrameEnd { time; func } :: all)
+      loop (FrameEnd { id; time; func } :: all)
     | "arg" | "value" ->
       let id = Id.deserialize file in
       let what = Scanf.bscanf file "%s@\n" (fun what -> what) in

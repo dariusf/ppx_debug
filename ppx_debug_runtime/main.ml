@@ -2,7 +2,7 @@ let rec spaces n = match n with 0 -> "" | _ -> " " ^ spaces (n - 1)
 
 let rec print_tree d trace =
   match trace with
-  | [] -> print_endline "end"
+  | [] -> ()
   | Trace.FrameStart f :: ts ->
     Format.printf "%s%s@." (spaces d) f.func;
     print_tree (d + 2) ts

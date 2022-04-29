@@ -262,7 +262,12 @@ let generate_value ~loc cu v =
       Ppx_debug_runtime.Config.read ()
     in
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
-      ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
+      ~ppx_debug_id:
+        {
+          file = [%e A.estring ~loc cu];
+          id = [%e A.eint ~loc (fresh ())];
+          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+        }
       [%e A.estring ~loc v]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
@@ -272,30 +277,47 @@ let generate_arg ~loc cu arg =
       Ppx_debug_runtime.Config.read ()
     in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
+      ~ppx_debug_id:
+        {
+          file = [%e A.estring ~loc cu];
+          id = [%e A.eint ~loc (fresh ())];
+          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+        }
       [%e A.estring ~loc arg]
       [%e A.pexp_ident ~loc { loc; txt = Lident arg }]]
 
-let generate_start ~loc what =
+let generate_start ~loc cu what =
   [%expr
     let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
       Ppx_debug_runtime.Config.read ()
     in
     Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+      ~ppx_debug_id:
+        {
+          file = [%e A.estring ~loc cu];
+          id = [%e A.eint ~loc (fresh ())];
+          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+        }
       ~func:[%e A.estring ~loc what]]
 
-let generate_end ~loc what =
+let generate_end ~loc cu what =
   [%expr
     let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
       Ppx_debug_runtime.Config.read ()
     in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+      ~ppx_debug_id:
+        {
+          file = [%e A.estring ~loc cu];
+          id = [%e A.eint ~loc (fresh ())];
+          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+        }
       ~func:[%e A.estring ~loc what]]
 
 let run_invoc ~loc cu fn_expr fn_name params =
   (* TODO should fn_name be given to func in generate_printer? *)
-  let start = generate_start ~loc fn_name in
-  let stop = generate_end ~loc fn_name in
+  let start = generate_start ~loc cu fn_name in
+  let stop = generate_end ~loc cu fn_name in
   let print_params =
     params
     |> List.filter_map (function
