@@ -75,15 +75,16 @@ let get_time =
 let emit_start ~ppx_debug_file ~func =
   Printf.fprintf (lazy_init ppx_debug_file) "start\n%d\n%s\n" (get_time ()) func
 
-let emit_argument ~ppx_debug_file ~ppx_debug_id:id what v =
+let emit_raw ~ppx_debug_file ~ppx_debug_id:id typ what v =
   let s = Marshal.to_string v [] in
-  Printf.fprintf (lazy_init ppx_debug_file) "arg\n%s\n%s\n%d\n%s\n"
-    (Id.serialize id) what (get_time ()) s
+  Printf.fprintf (lazy_init ppx_debug_file) "%s\n%s\n%s\n%d\n%d%s\n" typ
+    (Id.serialize id) what (get_time ()) (String.length s) s
+
+let emit_argument ~ppx_debug_file ~ppx_debug_id:id what v =
+  emit_raw ~ppx_debug_file ~ppx_debug_id:id "arg" what v
 
 let emit_value ~ppx_debug_file ~ppx_debug_id:id what v =
-  let s = Marshal.to_string v [] in
-  Printf.fprintf (lazy_init ppx_debug_file) "value\n%s\n%s\n%d\n%s\n"
-    (Id.serialize id) what (get_time ()) s
+  emit_raw ~ppx_debug_file ~ppx_debug_id:id "value" what v
 
 let emit_end ~ppx_debug_file ~func =
   Printf.fprintf (lazy_init ppx_debug_file) "end\n%d\n%s\n" (get_time ()) func
@@ -105,7 +106,8 @@ let read ~read_and_print_value filename =
       let id = Id.deserialize file in
       let what = Scanf.bscanf file "%s@\n" (fun what -> what) in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
-      let v = read_and_print_value file id in
+      let len = Scanf.bscanf file "%d" (fun t -> t) in
+      let v = read_and_print_value len file id in
       let next =
         match typ with
         | "arg" -> Argument { time; id; name = what; content = v }

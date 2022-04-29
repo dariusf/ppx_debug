@@ -5,13 +5,35 @@ type mode =
   | Some of string list
   | Modules of string list
 
+type variant =
+  | Containers
+  | Stdlib
+
 type t = {
+  (* whether to run the ppx *)
   enabled : bool;
+  (* control which functions/modules to log *)
   mode : mode;
+  (* the file the raw trace should be written to *)
   file : string;
+  (* whether to enable debug logging in the ppx, and the locations of those logs *)
+  ppx_logging : bool;
+  internal_log : string;
+  internal_tool_log : string;
+  (* what sorts of printers to generate *)
+  variant : variant;
 }
 
-let default = { enabled = true; mode = All []; file = "debug.trace" }
+let default =
+  {
+    enabled = true;
+    mode = All [];
+    file = "debug.trace";
+    ppx_logging = false;
+    internal_log = "/tmp/ppx_debug.txt";
+    internal_tool_log = "/tmp/ppx_debug_tool.txt";
+    variant = Stdlib;
+  }
 
 (* mode=All,f,g; blah=a,b,c *)
 let parse s =
@@ -21,6 +43,12 @@ let parse s =
       match c |> String.trim |> String.split_on_char '=' with
       | ["enabled"; "true"] -> { t with enabled = true }
       | ["enabled"; "false"] -> { t with enabled = false }
+      | ["file"; f] -> { t with file = f }
+      (* only needs to be enabled in development, for now *)
+      (* | ["log"; "true"] -> { t with ppx_logging = true } *)
+      (* | ["log"; "false"] -> { t with ppx_logging = false } *)
+      | ["variant"; "containers"] -> { t with variant = Containers }
+      | ["variant"; "stdlib"] -> { t with variant = Stdlib }
       | ["mode"; v] ->
         begin
           match String.split_on_char ',' v with

@@ -5,11 +5,14 @@ open Ppxlib
 (* logging the low-tech way *)
 let logfile =
   (* IO.File.remove_noerr filename; *)
-  (* IO.File.make "/tmp/ppx_debug.txt" *)
-  IO.File.make (Sys.getcwd () ^ "/ppx_debug.txt")
+  IO.File.make (C.read ()).internal_log
+(* IO.File.make (Sys.getcwd () ^ "/ppx_debug.txt") *)
 
 let log fmt =
-  Format.kasprintf (fun s -> IO.File.append_exn logfile (s ^ "\n")) fmt
+  Format.kasprintf
+    (fun s ->
+      if (C.read ()).ppx_logging then IO.File.append_exn logfile (s ^ "\n"))
+    fmt
 
 let p_si si = Format.printf "structure_item %a@." Pprintast.structure_item si
 let p_s s = Format.printf "structure %a@." Pprintast.structure s
@@ -27,10 +30,10 @@ let dummy_loc =
 module A = Ast_builder.Default
 
 (* thrown when we can't transform this function for legitimate reasons *)
-exception CannotTransform of string
+exception NotTransforming of string
 
-let cannot_transform fmt =
-  Format.ksprintf ?margin:None ~f:(fun s -> raise (CannotTransform s)) fmt
+let not_transforming fmt =
+  Format.ksprintf ?margin:None ~f:(fun s -> raise (NotTransforming s)) fmt
 
 let get_fn_name pat =
   match pat with
@@ -41,9 +44,7 @@ let get_fn_name pat =
    _;
   } ->
     fn_name
-  | _ ->
-    (* log "hello"; *)
-    cannot_transform "not a function pattern"
+  | _ -> not_transforming "%a is not a function pattern" Pprintast.pattern pat
 
 let fresh =
   let n = ref 0 in
@@ -110,16 +111,11 @@ let interesting_str_binding rec_flag binding =
   let attrs = binding.pvb_attributes in
   interesting_expr_binding rec_flag attrs binding
 
-let extract_binding_info filename modname b =
-  try
-    let { pvb_pat = original_lhs; pvb_expr = original_rhs; _ } = b in
-    let fn_name = get_fn_name original_lhs in
-    let params = collect_params original_rhs in
-    (original_rhs, fn_name, params)
-  with Failure e ->
-    print_endline filename;
-    print_endline modname;
-    raise (Failure e)
+let extract_binding_info b =
+  let { pvb_pat = original_lhs; pvb_expr = original_rhs; _ } = b in
+  let fn_name = get_fn_name original_lhs in
+  let params = collect_params original_rhs in
+  (original_rhs, fn_name, params)
 
 (** Recurses down a curried lambda to get the body *)
 let rec get_constrained_fn ?(loc = dummy_loc) pexp =
@@ -262,30 +258,38 @@ let fresh () =
 (* for now, we get ppx_debug_file by reading the environment, but removing that allows users to configure it through changing source *)
 let generate_value ~loc cu what v =
   [%expr
-    let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file:config.file
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+      Ppx_debug_runtime.Config.read ()
+    in
+    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
       [%e A.estring ~loc what]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
 let generate_arg ~loc cu arg =
   [%expr
-    let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:config.file
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+      Ppx_debug_runtime.Config.read ()
+    in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:([%e A.estring ~loc cu], "func", [%e A.eint ~loc (fresh ())])
       [%e A.estring ~loc arg]
       [%e A.pexp_ident ~loc { loc; txt = Lident arg }]]
 
 let generate_start ~loc what =
   [%expr
-    let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file:config.file
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+      Ppx_debug_runtime.Config.read ()
+    in
+    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
       ~func:[%e A.estring ~loc what]]
 
 let generate_end ~loc what =
   [%expr
-    let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file:config.file
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+      Ppx_debug_runtime.Config.read ()
+    in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
       ~func:[%e A.estring ~loc what]]
 
 let run_invoc ~loc cu fn_expr fn_name params =
@@ -340,18 +344,32 @@ let run_invoc ~loc cu fn_expr fn_name params =
         [result_printer];
       ]) [@metaloc loc]) *)
 
-let should_transform config modname fn =
-  if not config.C.enabled then false
-  else
-    match config.mode with
-    | All bs -> not (List.mem ~eq:String.equal fn bs)
-    | Some bs -> List.mem ~eq:String.equal fn bs
-    | Modules m -> List.mem ~eq:String.equal modname m
+let check_should_transform config modname fn =
+  (* built-in blacklist. don't instrument printers and some generated code that can be identified syntactically *)
+  if List.mem ~eq:String.equal fn ["pp"; "show"] then
+    not_transforming "%s is a printer or generated" fn;
+  if
+    List.exists
+      (fun prefix -> String.starts_with ~prefix fn)
+      [
+        "pp_";
+        "show_";
+        (* ppx_deriving generates functions like __0 for printer arguments *)
+        "__";
+      ]
+  then not_transforming "%s is a printer or generated" fn;
+  match config.C.mode with
+  | All bs when List.mem ~eq:String.equal fn bs ->
+    not_transforming "%s is in function blacklist" fn
+  | Some bs when not (List.mem ~eq:String.equal fn bs) ->
+    not_transforming "%s is not in function whitelist" fn
+  | Modules m when not (List.mem ~eq:String.equal modname m) ->
+    not_transforming "%s is not in module whitelist" modname
+  | _ -> ()
 
 let transform_binding_nonrecursively config filename modname b =
-  let original_rhs, fn_name, params = extract_binding_info filename modname b in
-  if not (should_transform config modname fn_name) then
-    cannot_transform "%s %s not transformed due to config" modname fn_name;
+  let original_rhs, fn_name, params = extract_binding_info b in
+  check_should_transform config modname fn_name;
   let original_fn_body, loc =
     let body, loc = get_constrained_fn original_rhs in
     let tr = replace_calls fn_name (mangle fn_name) in
@@ -382,9 +400,8 @@ let transform_binding_nonrecursively config filename modname b =
   [{ b with pvb_expr = new_rhs1 }]
 
 let transform_binding_recursively config filename modname b =
-  let original_rhs, fn_name, params = extract_binding_info filename modname b in
-  if not (should_transform config modname fn_name) then
-    cannot_transform "%s %s not transformed due to config" modname fn_name;
+  let original_rhs, fn_name, params = extract_binding_info b in
+  check_should_transform config modname fn_name;
   let original_fn_body, loc =
     let body, loc = get_constrained_fn original_rhs in
     let tr = replace_calls fn_name "self" in
@@ -449,7 +466,11 @@ let all_function_bindings bs =
 
 let transform_bindings filename modname config rec_flag bindings =
   if not (all_function_bindings bindings) then
-    cannot_transform "not all are bindings";
+    not_transforming "not all right sides are functions. left sides: %s"
+      (List.map
+         (fun b -> Format.asprintf "%a" Pprintast.pattern b.pvb_pat)
+         bindings
+      |> String.concat ",");
   match rec_flag with
   | Recursive ->
     List.concat_map
@@ -479,15 +500,15 @@ let traverse filename modname config =
                     body );
             }
           with
-          | CannotTransform _s -> e
+          | NotTransforming s ->
+            log "not transforming: %s" s;
+            e
           | Failure s ->
             A.pexp_extension ~loc (Location.error_extensionf ~loc "%s" s)
         end
       | _ -> e
 
     method! structure_item si =
-      (* print_endline "str"; *)
-      (* print_endline path; *)
       let si = super#structure_item si in
       match si with
       | { pstr_desc = Pstr_value (rec_flag, bindings); pstr_loc = loc; _ } ->
@@ -498,7 +519,9 @@ let traverse filename modname config =
             Ast_helper.Str.value flag
               (transform_bindings filename modname config rec_flag bindings)
           with
-          | CannotTransform _s -> si
+          | NotTransforming s ->
+            log "not transforming: %s" s;
+            si
           | Failure s ->
             A.pstr_extension ~loc (Location.error_extensionf ~loc "%s" s) []
             (* A.pstr_value ~loc Nonrecursive
@@ -512,19 +535,21 @@ let traverse filename modname config =
 
 let () =
   let config = C.read () in
-  Driver.register_transformation
-    ~instrument:
-      (Driver.Instrument.V2.make
-         (fun ctxt s ->
-           let cp = Expansion_context.Base.code_path ctxt in
-           let filename = Code_path.file_path cp in
-           let modname = Code_path.main_module_name cp in
-           (* let file =
-                match s with
-                | [] -> failwith "nothing to translate"
-                | { pstr_loc; _ } :: _ -> pstr_loc.loc_start.pos_fname
-              in *)
-           (* file  *)
-           (traverse filename modname config)#structure s)
-         ~position:After)
-    "ppx_debug"
+  if not config.C.enabled then log "not transforming: disabled via config"
+  else
+    Driver.register_transformation
+      ~instrument:
+        (Driver.Instrument.V2.make
+           (fun ctxt s ->
+             let cp = Expansion_context.Base.code_path ctxt in
+             let filename = Code_path.file_path cp in
+             let modname = Code_path.main_module_name cp in
+             (* let file =
+                  match s with
+                  | [] -> failwith "nothing to translate"
+                  | { pstr_loc; _ } :: _ -> pstr_loc.loc_start.pos_fname
+                in *)
+             (* file  *)
+             (traverse filename modname config)#structure s)
+           ~position:After)
+      "ppx_debug"

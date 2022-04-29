@@ -73,9 +73,56 @@ let f1 (x : b) (y : b) =
      res;
    res *)
 
+type 'a tree =
+  | Leaf
+  | Node of 'a tree list
+[@@deriving show { with_path = false }]
+
+let rec depth t =
+  match t with
+  | Leaf -> 0
+  | Node sub -> List.fold_right (fun c t -> max (depth c) t) sub 0 + 1
+
+(* let depth t =
+   let depth_original self t =
+     match t with
+     | Leaf -> 0
+     | Node sub -> List.fold_right (fun c t -> max (self c) t) sub 0 + 1
+   in
+   let rec aux t =
+     (* (let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+          Ppx_debug_runtime.Config.read ()
+        in
+        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"depth"); *)
+     (* (let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+          Ppx_debug_runtime.Config.read ()
+        in
+        (* Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+           ~ppx_debug_id:("demo/lib/lib.ml", "func", 8)
+           "t" Leaf *)
+        ()); *)
+     let res = depth_original aux t in
+     (* (let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+          Ppx_debug_runtime.Config.read ()
+        in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:("demo/lib/lib.ml", "func", 9)
+          "res" res); *)
+     (* (let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+          Ppx_debug_runtime.Config.read ()
+        in
+        Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"depth"); *)
+     res
+   in
+   aux t *)
+
 let main () =
   let x = X [2] in
   let y = C ("test", 7) in
+
+  let z = Node [Node [Leaf]; Leaf] in
+
+  depth z |> ignore;
 
   (* let open Ppx_debug_runtime in *)
   (* Trace.to_file "debug.trace" (fun ppx_debug_file -> *)

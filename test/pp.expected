@@ -2,20 +2,22 @@ let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "test"
 let fact n =
   let fact_original self n = match n with | 0 -> 1 | n -> n * (self (n - 1)) in
   let rec aux n =
-    (let config = Ppx_debug_runtime.Config.read () in
-     Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file:(config.file)
-       ~func:"fact");
-    ((let config = Ppx_debug_runtime.Config.read () in
-      Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+    (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+       Ppx_debug_runtime.Config.read () in
+     Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"fact");
+    ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+        Ppx_debug_runtime.Config.read () in
+      Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
         ~ppx_debug_id:("test.ml", "func", 0) "n" n);
      ());
     (let res = fact_original aux n in
-     (let config = Ppx_debug_runtime.Config.read () in
-      Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+     (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+        Ppx_debug_runtime.Config.read () in
+      Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
         ~ppx_debug_id:("test.ml", "func", 1) "res" res);
-     (let config = Ppx_debug_runtime.Config.read () in
-      Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file:(config.file)
-        ~func:"fact");
+     (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+        Ppx_debug_runtime.Config.read () in
+      Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"fact");
      res) in
   aux n
 let _ = fun () -> ()
@@ -24,18 +26,20 @@ type v =
   value: int } 
 let labelled ~l  () =
   let labelled_original ~l  () = l in
-  (let config = Ppx_debug_runtime.Config.read () in
-   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file:(config.file)
-     ~func:"labelled");
-  ((let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+  (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+     Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file ~func:"labelled");
+  ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:("test.ml", "func", 2) "l" l);
    ());
   (let res = labelled_original l () in
-   (let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file:(config.file)
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:("test.ml", "func", 3) "res" res);
-   (let config = Ppx_debug_runtime.Config.read () in
-    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file:(config.file)
-      ~func:"labelled");
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file ~func:"labelled");
    res)
