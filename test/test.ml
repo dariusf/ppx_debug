@@ -4,11 +4,10 @@ let _ = fun () -> ()
 
 type v = Root of { value : int }
 
-(* TODO labels are not yet supported *)
-let labelled ~l () = l
-
 (* TODO not capture-avoiding *)
 (* let value (Root { value }) = value *)
+
+let labelled ~l () = l
 
 (*
    let a n =

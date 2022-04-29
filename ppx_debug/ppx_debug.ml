@@ -314,8 +314,8 @@ let run_invoc ~loc cu fn_expr fn_name params =
     A.pexp_apply ~loc fn_expr
       (params
       |> List.map (function
-           | Param { param = { txt = s; _ }; _ } ->
-             (Nolabel, A.pexp_ident ~loc { loc; txt = Lident s })
+           | Param { param = { txt = s; _ }; label = l, _ } ->
+             (l, A.pexp_ident ~loc { loc; txt = Lident s })
            | Unit _ ->
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in
@@ -381,14 +381,7 @@ let transform_binding_nonrecursively config filename modname b =
   (* the entire new rhs *)
   let new_rhs1 =
     let open Ast_helper in
-    let ps =
-      params
-      (* |> List.map (fun p ->
-             match p with
-             | Param {param; label} -> `Param {label; param={ txt = s; loc = dummy_loc }}
-             | Unit _ -> `Unit) *)
-    in
-    fun_with_params ~loc ps
+    fun_with_params ~loc params
       (Exp.let_ Nonrecursive
          [
            Ast_builder.Default.value_binding ~loc

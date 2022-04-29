@@ -34,7 +34,7 @@ let labelled ~l  () =
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:("test.ml", "func", 2) "l" l);
    ());
-  (let res = labelled_original l () in
+  (let res = labelled_original ~l () in
    (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
       Ppx_debug_runtime.Config.read () in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
