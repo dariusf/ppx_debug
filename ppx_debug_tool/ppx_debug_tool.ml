@@ -120,6 +120,27 @@ let rec create_pp_fn ~loc qual exp_type =
     | Stdlib -> [%expr Format.pp_print_list [%e create_pp_fn ~loc qual a]])
   | Tconstr (Pident ident, [], _) when String.equal (Ident.name ident) "unit" ->
     [%expr fun fmt () -> Format.fprintf fmt "()"]
+    (* the following two cases are the same except for the qualifiers *)
+  | Tconstr (Pdot (_q, ident), args, _) ->
+    let f =
+      A.pexp_ident ~loc
+        {
+          loc;
+          txt =
+            Ldot
+              ( qual,
+                (* or q?*)
+                match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
+        }
+    in
+    (match args with
+    | [] -> f
+    | _ :: _ ->
+      let p_args =
+        List.map (create_pp_fn ~loc qual) args
+        |> List.map (fun a -> (Ppxlib.Nolabel, a))
+      in
+      A.pexp_apply ~loc f p_args)
   | Tconstr (Pident ident, args, _) ->
     let f =
       A.pexp_ident ~loc
