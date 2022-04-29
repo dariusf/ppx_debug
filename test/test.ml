@@ -2,6 +2,11 @@ let ppx_debug_file = Ppx_debug_runtime.Trace.new_channel "test"
 let rec fact n = match n with 0 -> 1 | n -> n * fact (n - 1)
 let _ = fun () -> ()
 
+type v = Root of { value : int }
+
+(* TODO not capture-avoiding *)
+(* let value (Root { value }) = value *)
+
 (*
    let a n =
      let%trace rec aux : 'a -> int -> int =

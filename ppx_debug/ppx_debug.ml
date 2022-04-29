@@ -128,20 +128,23 @@ let rec get_constrained_fn ?(loc = dummy_loc) pexp =
     get_constrained_fn ~loc:pexp_loc e
   | _ -> (pexp, loc)
 
-let app_traverse find replace =
+(* this repl *)
+let replace_calls find replace =
   let open Ast_helper in
   object
     inherit Ast_traverse.map as super
 
     method! expression expr =
       let expr = super#expression expr in
+      (* only replace unqualified names, as those are more likely to be calls *)
+      (* TODO this is not capture-avoiding *)
       match expr with
       | { pexp_desc = Pexp_ident { txt = Lident fn_name; loc }; _ }
         when String.equal fn_name find ->
         Exp.ident ~loc { txt = Lident replace; loc }
-      | { pexp_desc = Pexp_ident { txt = Ldot (initial, fn_name); loc }; _ }
-        when String.equal fn_name find ->
-        Exp.ident ~loc { txt = Ldot (initial, replace); loc }
+      (* | { pexp_desc = Pexp_ident { txt = Ldot (initial, fn_name); loc }; _ }
+         when String.equal fn_name find ->
+         Exp.ident ~loc { txt = Ldot (initial, replace); loc } *)
       | _ -> expr
   end
 
@@ -351,7 +354,7 @@ let transform_binding_nonrecursively config filename modname b =
     cannot_transform "%s %s not transformed due to config" modname fn_name;
   let original_fn_body, loc =
     let body, loc = get_constrained_fn original_rhs in
-    let tr = app_traverse fn_name (mangle fn_name) in
+    let tr = replace_calls fn_name (mangle fn_name) in
     (* this is needed in the nonrecursive case because this may be used for recursive fns *)
     let new_body = tr#expression body in
     (new_body, loc)
@@ -384,7 +387,7 @@ let transform_binding_recursively config filename modname b =
     cannot_transform "%s %s not transformed due to config" modname fn_name;
   let original_fn_body, loc =
     let body, loc = get_constrained_fn original_rhs in
-    let tr = app_traverse fn_name "self" in
+    let tr = replace_calls fn_name "self" in
     let new_body = tr#expression body in
 
     ( fun_with_params ~loc

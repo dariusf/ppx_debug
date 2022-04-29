@@ -19,3 +19,6 @@ let fact n =
      res) in
   aux n
 let _ = fun () -> ()
+type v =
+  | Root of {
+  value: int } 
