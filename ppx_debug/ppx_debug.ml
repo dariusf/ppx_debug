@@ -314,8 +314,11 @@ let run_invoc ~loc cu fn_expr fn_name params =
     A.pexp_apply ~loc fn_expr
       (params
       |> List.map (function
-           | Param { param = { txt = s; _ }; label = l, _ } ->
-             (l, A.pexp_ident ~loc { loc; txt = Lident s })
+           | Param { param = { txt = s; _ }; label = lb, def } ->
+             let lab =
+               match (lb, def) with Optional s, Some _ -> Labelled s | _ -> lb
+             in
+             (lab, A.pexp_ident ~loc { loc; txt = Lident s })
            | Unit _ ->
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in

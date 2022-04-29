@@ -8,6 +8,8 @@ type v = Root of { value : int }
 (* let value (Root { value }) = value *)
 
 let labelled ~l () = l
+let optional ?(l = 1) () = l
+let optional_opt ?l () = l
 
 (*
    let a n =
