@@ -20,13 +20,6 @@ let p_e e = Format.printf "expression %a@." Pprintast.expression e
 let p_p p = Format.printf "pattern %a@." Pprintast.pattern p
 let p_t t = Format.printf "type %a@." Pprintast.core_type t
 
-let dummy_loc =
-  {
-    Location.loc_start = Lexing.dummy_pos;
-    Location.loc_end = Lexing.dummy_pos;
-    Location.loc_ghost = true;
-  }
-
 module A = Ast_builder.Default
 
 (* thrown when we can't transform this function for legitimate reasons *)
@@ -64,18 +57,22 @@ type param =
 
 let rec collect_params f =
   match f with
-  | { pexp_desc = Pexp_fun (lbl, lbl_e, { ppat_desc = desc; _ }, rest); _ } ->
+  | {
+   pexp_desc =
+     Pexp_fun (lbl, lbl_e, { ppat_desc = desc; ppat_loc = loc; _ }, rest);
+   _;
+  } ->
     let label = (lbl, lbl_e) in
     begin
       match desc with
       | Ppat_var { txt = param; _ }
       | Ppat_constraint ({ ppat_desc = Ppat_var { txt = param; _ }; _ }, _) ->
-        let param = { txt = param; loc = dummy_loc } in
+        let param = { txt = param; loc } in
         Param { param; label } :: collect_params rest
       | Ppat_construct ({ txt = Lident "()"; _ }, None) ->
         Unit { label } :: collect_params rest
       | Ppat_any ->
-        let param = { txt = fresh (); loc = dummy_loc } in
+        let param = { txt = fresh (); loc } in
         Param { param; label } :: collect_params rest
       | _ -> []
     end
@@ -118,7 +115,7 @@ let extract_binding_info b =
   (original_rhs, fn_name, params)
 
 (** Recurses down a curried lambda to get the body *)
-let rec get_constrained_fn ?(loc = dummy_loc) pexp =
+let rec get_constrained_fn ~loc pexp =
   match pexp with
   | { pexp_desc = Pexp_constraint (e, _); pexp_loc; _ } ->
     get_constrained_fn ~loc:pexp_loc e
@@ -146,7 +143,7 @@ let replace_calls find replace =
 
 let mangle fn_name = fn_name ^ "_original"
 
-let rec fun_with_params ?(loc = dummy_loc) params body =
+let rec fun_with_params ~loc params body =
   let open Ast_helper in
   match params with
   | [] -> body
@@ -158,11 +155,11 @@ let rec fun_with_params ?(loc = dummy_loc) params body =
     in
     Exp.fun_ ~loc lbl lbl_e p' (fun_with_params ~loc ps body)
 
-let ident ?(loc = dummy_loc) s =
+let ident ~loc s =
   let open Ast_helper in
   Exp.ident ~loc { txt = Lident s; loc }
 
-let qualified_ident ?(loc = dummy_loc) ss =
+let qualified_ident ~loc ss =
   let open Ast_helper in
   match ss with
   | [] -> failwith "qualified_ident requires a non-empty list"
@@ -171,22 +168,22 @@ let qualified_ident ?(loc = dummy_loc) ss =
     let res = List.fold_left (fun t c -> Ldot (t, c)) (Lident s) ss in
     Exp.ident ~loc { txt = res; loc }
 
-let rec fun_wildcards ?(loc = dummy_loc) n body =
+let rec fun_wildcards ~loc n body =
   let open Ast_helper in
   match n with
   | 0 -> body
   | _ ->
     Exp.fun_ ~loc Nolabel None (Pat.any ()) (fun_wildcards ~loc (n - 1) body)
 
-let app ?(loc = dummy_loc) f args =
+let app ~loc f args =
   let open Ast_helper in
   Exp.apply ~loc f (List.map (fun a -> (Nolabel, a)) args)
 
-let str ?(loc = dummy_loc) s =
+let str ~loc s =
   let open Ast_helper in
   Exp.constant ~loc (Pconst_string (s, loc, None))
 
-let param_to_expr ?(loc = dummy_loc) p =
+let param_to_expr ~loc p =
   let open Ast_helper in
   match p with
   | Unit _ -> Exp.construct ~loc { txt = Lident "()"; loc } None
@@ -393,10 +390,11 @@ let check_should_transform config modname fn =
   | _ -> ()
 
 let transform_binding_nonrecursively config filename modname b =
+  let loc = b.pvb_loc in
   let original_rhs, fn_name, params = extract_binding_info b in
   check_should_transform config modname fn_name;
   let original_fn_body, loc =
-    let body, loc = get_constrained_fn original_rhs in
+    let body, loc = get_constrained_fn ~loc original_rhs in
     let tr = replace_calls fn_name (mangle fn_name) in
     (* this is needed in the nonrecursive case because this may be used for recursive fns *)
     let new_body = tr#expression body in
@@ -410,29 +408,24 @@ let transform_binding_nonrecursively config filename modname b =
       (Exp.let_ Nonrecursive
          [
            Ast_builder.Default.value_binding ~loc
-             ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
+             ~pat:(Pat.var { txt = mangle fn_name; loc })
              ~expr:original_fn_body;
          ]
-         (run_invoc ~loc filename (ident (mangle fn_name)) fn_name params))
+         (run_invoc ~loc filename (ident ~loc (mangle fn_name)) fn_name params))
   in
   [{ b with pvb_expr = new_rhs1 }]
 
 let transform_binding_recursively config filename modname b =
+  let loc = b.pvb_loc in
   let original_rhs, fn_name, params = extract_binding_info b in
   check_should_transform config modname fn_name;
   let original_fn_body, loc =
-    let body, loc = get_constrained_fn original_rhs in
+    let body, loc = get_constrained_fn ~loc original_rhs in
     let tr = replace_calls fn_name "self" in
     let new_body = tr#expression body in
 
     ( fun_with_params ~loc
-        [
-          Param
-            {
-              param = { txt = "self"; loc = dummy_loc };
-              label = (Nolabel, None);
-            };
-        ]
+        [Param { param = { txt = "self"; loc }; label = (Nolabel, None) }]
         new_body,
       loc )
   in
@@ -443,7 +436,7 @@ let transform_binding_recursively config filename modname b =
     let run =
       run_invoc ~loc filename
         (* ~fn_expr: *)
-        [%expr [%e ident (mangle fn_name)] aux]
+        [%expr [%e ident ~loc (mangle fn_name)] aux]
         fn_name params
       (* arg_printers result_printer *)
     in
@@ -461,13 +454,13 @@ let transform_binding_recursively config filename modname b =
       (Exp.let_ Nonrecursive
          [
            Ast_builder.Default.value_binding ~loc
-             ~pat:(Pat.var { txt = mangle fn_name; loc = dummy_loc })
+             ~pat:(Pat.var { txt = mangle fn_name; loc })
              ~expr:original_fn_body;
          ]
          (Exp.let_ Recursive
             [
               Ast_builder.Default.value_binding ~loc
-                ~pat:(Pat.var { txt = "aux"; loc = dummy_loc })
+                ~pat:(Pat.var { txt = "aux"; loc })
                 ~expr:(fun_with_params ~loc params run);
             ]
             (Exp.apply ~loc aux ps1)))
