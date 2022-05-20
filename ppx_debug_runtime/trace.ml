@@ -76,7 +76,8 @@ let get_time =
     let t = get () in
     if t <= !last_time then begin
       incr time_i;
-      !last_time + !time_i
+      last_time := !last_time + !time_i;
+      !last_time
     end
     else begin
       time_i := 0;
