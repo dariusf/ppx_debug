@@ -1,7 +1,7 @@
 
 (executable
  (name debug)
- (libraries lib compiler-libs.common containers)
+ (libraries lib)
  (preprocess (pps ppx_debug_tool)))
 
 (env
