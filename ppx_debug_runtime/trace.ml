@@ -94,7 +94,13 @@ let emit_end ~ppx_debug_file ~ppx_debug_id:id ~func =
     (Id.serialize id) (get_time ()) func
 
 let emit_raw ~ppx_debug_file ~ppx_debug_id:id typ what v =
-  let s = Marshal.to_string v [] in
+  (* if a function is given, instead of throwing an exception, output a string.
+     this is okay because the printer for functions ignores its argument. *)
+  let[@warning "-52"] s =
+    try Marshal.to_string v []
+    with Invalid_argument "output_value: functional value" ->
+      Marshal.to_string "<fn>" []
+  in
   Printf.fprintf (lazy_init ppx_debug_file) "%s\n%s\n%s\n%d\n%d%s\n" typ
     (Id.serialize id) what (get_time ()) (String.length s) s
 
