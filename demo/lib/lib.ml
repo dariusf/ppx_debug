@@ -4,17 +4,17 @@ let rec fib n =
 let rec fact n = match n with _ when n <= 0 -> 1 | _ -> n * fact (n - 1)
 
 type 'a tree =
-  | Leaf
+  | Leaf of int
   | Node of 'a tree list
 [@@deriving show { with_path = false }]
 
 let rec depth t =
   match t with
-  | Leaf -> 0
+  | Leaf _ -> 0
   | Node sub -> List.fold_right (fun c t -> max (depth c) t) sub 0 + 1
 
 let main () =
-  let z = Node [Node [Leaf]; Leaf] in
+  let z = Node [Node [Leaf 1]; Leaf 2] in
   depth z |> ignore;
   fact 5 |> ignore;
   fib 3 |> ignore

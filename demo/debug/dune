@@ -2,6 +2,7 @@
 (executable
  (name debug)
  (libraries lib)
+ (preprocessor_deps (source_tree ../lib))
  (preprocess (pps ppx_debug_tool)))
 
 (env
