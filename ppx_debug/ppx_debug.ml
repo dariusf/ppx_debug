@@ -356,14 +356,13 @@ let run_invoc cu fn_expr func =
            | Unit _ ->
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in
-  let print_res = generate_arg ~loc cu "res" in
   [%expr
     [%e start];
     [%e print_params];
-    let res = [%e call_fn] in
-    [%e print_res];
+    let _res = [%e call_fn] in
+    [%e generate_arg ~loc cu "_res"];
     [%e stop];
-    res]
+    _res]
 
 (* (app ~loc run_fn_ident
    (List.concat
