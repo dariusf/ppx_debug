@@ -532,8 +532,8 @@ let traverse filename modname config =
       match e with
       | { pexp_desc = Pexp_fun _; _ } when config.C.lambdas ->
         let func = normalize_fn e in
-        (* TODO recurse further? in case there are bindings *)
         (* TODO name more uniquely *)
+        let func = { func with body = self#expression func.body } in
         nonrecursive_rhs filename func
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
         ->

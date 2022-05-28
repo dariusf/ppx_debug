@@ -23,3 +23,10 @@ let a f =
   b f
 
 let sum = List.fold_right (fun c t -> c + t) [1; 2; 3] 0
+
+let z =
+  List.map
+    (fun a ->
+      let f x = x in
+      f a)
+    [1; 2; 3]

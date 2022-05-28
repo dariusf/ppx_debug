@@ -258,3 +258,53 @@ let sum =
              ~ppx_debug_id:{ file = "test.ml"; id = 41; line = 25 }
              ~func:"_lambda");
           res)) [1; 2; 3] 0
+let z =
+  List.map
+    (fun a ->
+       let _lambda_original a =
+         let f x =
+           let f_original x = x in
+           (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+              Ppx_debug_runtime.Config.read () in
+            Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+              ~ppx_debug_id:{ file = "test.ml"; id = 45; line = 30 }
+              ~func:"f");
+           ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+               Ppx_debug_runtime.Config.read () in
+             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+               ~ppx_debug_id:{ file = "test.ml"; id = 47; line = 30 } "x" x);
+            ());
+           (let res = f_original x in
+            (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+               Ppx_debug_runtime.Config.read () in
+             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+               ~ppx_debug_id:{ file = "test.ml"; id = 48; line = 30 } "res"
+               res);
+            (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+               Ppx_debug_runtime.Config.read () in
+             Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+               ~ppx_debug_id:{ file = "test.ml"; id = 46; line = 30 }
+               ~func:"f");
+            res) in
+         f a in
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+          ~ppx_debug_id:{ file = "test.ml"; id = 49; line = 29 }
+          ~func:"_lambda");
+       ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+           Ppx_debug_runtime.Config.read () in
+         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+           ~ppx_debug_id:{ file = "test.ml"; id = 51; line = 29 } "a" a);
+        ());
+       (let res = _lambda_original a in
+        (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+           Ppx_debug_runtime.Config.read () in
+         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+           ~ppx_debug_id:{ file = "test.ml"; id = 52; line = 29 } "res" res);
+        (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+           Ppx_debug_runtime.Config.read () in
+         Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+           ~ppx_debug_id:{ file = "test.ml"; id = 50; line = 29 }
+           ~func:"_lambda");
+        res)) [1; 2; 3]
