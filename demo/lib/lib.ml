@@ -17,6 +17,7 @@ let rec depth t =
 
 let c f = f 1
 let sum xs = List.fold_right (fun c t -> c + t) xs 0
+let rec tail xs acc = match xs with [] -> acc | x :: xs -> tail xs (x + acc)
 
 let main () =
   let z = Node [Node [Leaf 1]; Leaf 2] in
@@ -24,4 +25,5 @@ let main () =
   fact 5 |> ignore;
   fib 3 |> ignore;
   c (fun x -> x + 1) |> ignore;
-  sum [1; 2; 3] |> ignore
+  sum [1; 2; 3] |> ignore;
+  tail [1; 2; 3] 0 |> ignore
