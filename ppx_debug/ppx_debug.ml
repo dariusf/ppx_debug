@@ -503,6 +503,11 @@ let traverse filename modname config =
       match e with
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
         ->
+        let bindings =
+          List.map
+            (fun b -> { b with pvb_expr = super#expression b.pvb_expr })
+            bindings
+        in
         begin
           try
             {
@@ -526,6 +531,11 @@ let traverse filename modname config =
       let si = super#structure_item si in
       match si with
       | { pstr_desc = Pstr_value (rec_flag, bindings); pstr_loc = loc; _ } ->
+        let bindings =
+          List.map
+            (fun b -> { b with pvb_expr = super#expression b.pvb_expr })
+            bindings
+        in
         (* handle mutual recursion *)
         let flag = match bindings with [_] -> Nonrecursive | _ -> rec_flag in
         begin

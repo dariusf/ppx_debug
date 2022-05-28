@@ -20,7 +20,7 @@ let merge_arguments trace =
       | FrameEnd _, (t1, a, s) :: ps ->
         let convert_start e args =
           match e with
-          | Trace.FrameStart { time; func } ->
+          | Trace.FrameStart { time; func; _ } ->
             `Assoc
               [
                 ("name", `String func);

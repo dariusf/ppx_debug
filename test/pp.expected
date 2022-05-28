@@ -139,3 +139,70 @@ and pong : int -> int =
           ~ppx_debug_id:{ file = "test.ml"; id = 21; line = 15 } ~func:"pong");
        res) in
     aux n
+let a f =
+  let a_original f =
+    let b f =
+      let b_original f =
+        let c f =
+          let c_original f = f in
+          (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+             Ppx_debug_runtime.Config.read () in
+           Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+             ~ppx_debug_id:{ file = "test.ml"; id = 24; line = 19 } ~func:"c");
+          ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+              Ppx_debug_runtime.Config.read () in
+            Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+              ~ppx_debug_id:{ file = "test.ml"; id = 26; line = 19 } "f" f);
+           ());
+          (let res = c_original f in
+           (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+              Ppx_debug_runtime.Config.read () in
+            Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+              ~ppx_debug_id:{ file = "test.ml"; id = 27; line = 19 } "res"
+              res);
+           (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+              Ppx_debug_runtime.Config.read () in
+            Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+              ~ppx_debug_id:{ file = "test.ml"; id = 25; line = 19 }
+              ~func:"c");
+           res) in
+        c f in
+      (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+         Ppx_debug_runtime.Config.read () in
+       Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+         ~ppx_debug_id:{ file = "test.ml"; id = 28; line = 18 } ~func:"b");
+      ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:{ file = "test.ml"; id = 30; line = 18 } "f" f);
+       ());
+      (let res = b_original f in
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:{ file = "test.ml"; id = 31; line = 18 } "res" res);
+       (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+          Ppx_debug_runtime.Config.read () in
+        Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+          ~ppx_debug_id:{ file = "test.ml"; id = 29; line = 18 } ~func:"b");
+       res) in
+    b f in
+  (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+     Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+     ~ppx_debug_id:{ file = "test.ml"; id = 32; line = 17 } ~func:"a");
+  ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 34; line = 17 } "f" f);
+   ());
+  (let res = a_original f in
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 35; line = 17 } "res" res);
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 33; line = 17 } ~func:"a");
+   res)
