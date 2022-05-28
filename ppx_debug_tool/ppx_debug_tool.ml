@@ -117,7 +117,14 @@ let rec create_pp_fn ~loc qual exp_type =
           ~pp_stop:(fun fmt () -> Format.fprintf fmt "]")
           ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
           [%e create_pp_fn ~loc qual a]]
-    | Stdlib -> [%expr Format.pp_print_list [%e create_pp_fn ~loc qual a]])
+    | Stdlib ->
+      [%expr
+        fun fmt xs ->
+          Format.fprintf fmt "[";
+          Format.pp_print_list
+            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@ ")
+            [%e create_pp_fn ~loc qual a] fmt xs;
+          Format.fprintf fmt "]"])
   | Tconstr (Pident ident, [], _) when String.equal (Ident.name ident) "unit" ->
     [%expr fun fmt () -> Format.fprintf fmt "()"]
     (* the following two cases are the same except for the qualifiers *)
