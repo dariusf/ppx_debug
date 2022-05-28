@@ -8,7 +8,7 @@
 
 Fills the niche an interactive debugger would fill in other languages
 
-A small, robust framework for _application-level tracing_, intended for exploring and debugging code with complex recursive functions (i.e. PL tools).
+A small framework for _application-level tracing_, intended for exploring and debugging code with complex recursive functions (i.e. PL tools).
 
 Annotate code like this:
 
@@ -28,6 +28,8 @@ echo todo
 
 This would be unsurprising in any language other than OCaml, where there is no polymorphic show or runtime type metadata, and because staged_pps isn't being used.
 
+See the [demo project](demo) for the required setup and assumptions.
+
 # How it works:
 
 1. User code is first compiled with a (non-staged) ppx to instrument functions. This dumps values using [Marshal](https://ocaml.org/api/Stdlib.Marshal.html).
@@ -38,7 +40,7 @@ This would be unsurprising in any language other than OCaml, where there is no p
 
 - Separating trace content from schema reduces runtime overhead, i.e. there are reasons to do this in other languages, and even with modular implicits.
 - Not using staged_pps reduces compilation time when the trace isn't read.
-- A form of staging is still used (compiling a dependent second executable), but with a [much more explicit](https://dune.readthedocs.io/en/stable/concepts.html#preprocessing-specification) separation of phases that's arguably easier to understand. For example, from the docs, it's not clear if reading the cmt file of a compilation unit during preprocessing is allowed.
+- A form of staging is still used (compiling a dependent second executable), but with an explicit separation of phases that's arguably easier to understand. From the current [docs](https://dune.readthedocs.io/en/stable/concepts.html#preprocessing-specification), it's not clear if reading the cmt file of a compilation unit during preprocessing is allowed.
 - The typechecker is not run twice. This seems hard to avoid with staged_pps as ppx-generated code has to be validated.
 - It's unclear if there is sufficient information available at runtime to dump data structures with something like an [instrumented bytecode interpreter](https://ocaml.org/releases/4.14/htmlman/instrumented-runtime.html) or [gdb](https://mshinwell.github.io/libmonda/). The maintenance burden seems higher, though.
 - We don't use Dune's instrumentation because it's not meant to remain in the final executable, so the generated code doesn't end up in the cmt files as we need. Instead tracing may be disabled via environment variable.

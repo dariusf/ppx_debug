@@ -55,7 +55,7 @@ type param =
     }
   | Unit of { label : label }
 
-let rec collect_params f =
+let rec traverse_fn f =
   match f with
   | {
    pexp_desc =
@@ -63,21 +63,31 @@ let rec collect_params f =
    _;
   } ->
     let label = (lbl, lbl_e) in
+    let params, body = traverse_fn rest in
     begin
       match desc with
       | Ppat_var { txt = param; _ }
       | Ppat_constraint ({ ppat_desc = Ppat_var { txt = param; _ }; _ }, _) ->
         let param = { txt = param; loc } in
-        Param { param; label } :: collect_params rest
+        (Param { param; label } :: params, body)
       | Ppat_construct ({ txt = Lident "()"; _ }, None) ->
-        Unit { label } :: collect_params rest
+        (Unit { label } :: params, body)
       | Ppat_any ->
         let param = { txt = fresh (); loc } in
-        Param { param; label } :: collect_params rest
-      | _ -> []
+        (Param { param; label } :: params, body)
+      | _ -> ([], body)
     end
-  | { pexp_desc = Pexp_constraint (e, _); _ } -> collect_params e
-  | _ -> []
+  | { pexp_desc = Pexp_constraint (e, _); _ } -> traverse_fn e
+  | _ -> ([], f)
+
+let collect_params f = fst (traverse_fn f)
+
+(** Recurses down a curried lambda to get the body *)
+let rec get_constrained_fn ~loc pexp =
+  match pexp with
+  | { pexp_desc = Pexp_constraint (e, _); pexp_loc; _ } ->
+    get_constrained_fn ~loc:pexp_loc e
+  | _ -> (pexp, loc)
 
 let clamp l h x = max l (min h x)
 
@@ -114,13 +124,6 @@ let extract_binding_info b =
   let params = collect_params original_rhs in
   (original_rhs, fn_name, params)
 
-(** Recurses down a curried lambda to get the body *)
-let rec get_constrained_fn ~loc pexp =
-  match pexp with
-  | { pexp_desc = Pexp_constraint (e, _); pexp_loc; _ } ->
-    get_constrained_fn ~loc:pexp_loc e
-  | _ -> (pexp, loc)
-
 (* this repl *)
 let replace_calls find replace =
   let open Ast_helper in
@@ -143,6 +146,7 @@ let replace_calls find replace =
 
 let mangle fn_name = fn_name ^ "_original"
 
+(** Somewhat-inverse of traverse_fn *)
 let rec fun_with_params ~loc params body =
   let open Ast_helper in
   match params with
@@ -389,6 +393,17 @@ let check_should_transform config modname fn =
     not_transforming "%s is not in module whitelist" modname
   | _ -> ()
 
+let nonrecursive_rhs ~loc filename fn_name params original_fn_body =
+  let open Ast_helper in
+  fun_with_params ~loc params
+    (Exp.let_ Nonrecursive
+       [
+         Ast_builder.Default.value_binding ~loc
+           ~pat:(Pat.var { txt = mangle fn_name; loc })
+           ~expr:original_fn_body;
+       ]
+       (run_invoc ~loc filename (ident ~loc (mangle fn_name)) fn_name params))
+
 let transform_binding_nonrecursively config filename modname b =
   let loc = b.pvb_loc in
   let original_rhs, fn_name, params = extract_binding_info b in
@@ -400,18 +415,8 @@ let transform_binding_nonrecursively config filename modname b =
     let new_body = tr#expression body in
     (new_body, loc)
   in
-
-  (* the entire new rhs *)
   let new_rhs1 =
-    let open Ast_helper in
-    fun_with_params ~loc params
-      (Exp.let_ Nonrecursive
-         [
-           Ast_builder.Default.value_binding ~loc
-             ~pat:(Pat.var { txt = mangle fn_name; loc })
-             ~expr:original_fn_body;
-         ]
-         (run_invoc ~loc filename (ident ~loc (mangle fn_name)) fn_name params))
+    nonrecursive_rhs ~loc filename fn_name params original_fn_body
   in
   [{ b with pvb_expr = new_rhs1 }]
 
@@ -495,19 +500,35 @@ let transform_bindings filename modname config rec_flag bindings =
       (fun b -> transform_binding_nonrecursively config filename modname b)
       bindings
 
+let rec transform_fn_body f e =
+  match e with
+  | { pexp_desc = Pexp_fun (lab, lab_e, arg, body); _ } ->
+    { e with pexp_desc = Pexp_fun (lab, lab_e, arg, transform_fn_body f body) }
+  | { pexp_desc = Pexp_constraint (e, t); _ } ->
+    { e with pexp_desc = Pexp_constraint (transform_fn_body f e, t) }
+  | _ -> f e
+
 let traverse filename modname config =
-  object
+  object (self)
     inherit Ast_traverse.map (* _with_expansion_context *) as super
 
     method! expression e =
       match e with
+      | { pexp_desc = Pexp_fun _; pexp_loc = loc; _ } when config.C.lambdas ->
+        let params, _body = traverse_fn e in
+        (* TODO recurse further? in case there are bindings *)
+        (* TODO name more uniquely *)
+        nonrecursive_rhs ~loc filename "_lambda" params e
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
         ->
         let bindings =
           List.map
-            (fun b -> { b with pvb_expr = super#expression b.pvb_expr })
+            (fun b ->
+              { b with pvb_expr = transform_fn_body self#expression b.pvb_expr })
             bindings
         in
+        (* rebuild this in case we end up not transforming the binding *)
+        let e = { e with pexp_desc = Pexp_let (rec_flag, bindings, body) } in
         begin
           try
             {
@@ -525,23 +546,28 @@ let traverse filename modname config =
           | Failure s ->
             A.pexp_extension ~loc (Location.error_extensionf ~loc "%s" s)
         end
-      | _ -> e
+      | _ -> super#expression e
 
     method! structure_item si =
-      let si = super#structure_item si in
       match si with
       | { pstr_desc = Pstr_value (rec_flag, bindings); pstr_loc = loc; _ } ->
         let bindings =
           List.map
-            (fun b -> { b with pvb_expr = super#expression b.pvb_expr })
+            (fun b ->
+              { b with pvb_expr = transform_fn_body self#expression b.pvb_expr })
             bindings
         in
+        (* rebuild this in case we end up not transforming the binding *)
+        let si = { si with pstr_desc = Pstr_value (rec_flag, bindings) } in
         (* handle mutual recursion *)
         let flag = match bindings with [_] -> Nonrecursive | _ -> rec_flag in
         begin
           try
-            Ast_helper.Str.value flag
-              (transform_bindings filename modname config rec_flag bindings)
+            let r =
+              Ast_helper.Str.value flag
+                (transform_bindings filename modname config rec_flag bindings)
+            in
+            r
           with
           | NotTransforming s ->
             log "not transforming: %s" s;
@@ -554,7 +580,7 @@ let traverse filename modname config =
                    ~expr:;
                ] *)
         end
-      | _ -> si
+      | _ -> super#structure_item si
   end
 
 let () =
