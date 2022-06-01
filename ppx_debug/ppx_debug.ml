@@ -543,6 +543,24 @@ let traverse filename modname config =
 
     method! expression e =
       match e with
+      | {
+       pexp_desc =
+         Pexp_extension
+           ( { txt = "trace"; _ },
+             PStr
+               [
+                 {
+                   pstr_desc =
+                     Pstr_eval
+                       ( { pexp_desc = Pexp_ident { txt = Lident id; _ }; _ },
+                         _attrs );
+                   _;
+                 };
+               ] );
+       pexp_loc = loc;
+       _;
+      } ->
+        generate_value ~loc filename id
       | { pexp_desc = Pexp_match (e, cases); pexp_loc = loc; _ }
         when config.C.matches ->
         let e = self#expression e in
@@ -570,9 +588,17 @@ let traverse filename modname config =
         let bindings =
           List.map
             (fun b ->
-              { b with pvb_expr = transform_fn_body self#expression b.pvb_expr })
+              try
+                let func = extract_binding_info b in
+                check_should_transform config modname func.name;
+                {
+                  b with
+                  pvb_expr = transform_fn_body self#expression b.pvb_expr;
+                }
+              with NotTransforming _ -> b)
             bindings
         in
+        let body = self#expression body in
         (* rebuild this in case we end up not transforming the binding *)
         let e = { e with pexp_desc = Pexp_let (rec_flag, bindings, body) } in
         begin
@@ -600,7 +626,14 @@ let traverse filename modname config =
         let bindings =
           List.map
             (fun b ->
-              { b with pvb_expr = transform_fn_body self#expression b.pvb_expr })
+              try
+                let func = extract_binding_info b in
+                check_should_transform config modname func.name;
+                {
+                  b with
+                  pvb_expr = transform_fn_body self#expression b.pvb_expr;
+                }
+              with NotTransforming _ -> b)
             bindings
         in
         (* rebuild this in case we end up not transforming the binding *)

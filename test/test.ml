@@ -32,3 +32,7 @@ let z =
       let f x = x in
       f a)
     [1; 2; 3]
+
+let a () =
+  let x = 1 in
+  [%trace x]

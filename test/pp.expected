@@ -336,3 +336,25 @@ let z =
            ~ppx_debug_id:{ file = "test.ml"; id = 53; line = 31 }
            ~func:"_lambda");
         _res)) [1; 2; 3]
+let a () =
+  let a_original () =
+    let x = 1 in
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 56; line = 38 } "x" x in
+  (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+     Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+     ~ppx_debug_id:{ file = "test.ml"; id = 57; line = 36 } ~func:"a");
+  ();
+  (let _res = a_original () in
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 59; line = 36 } "_res" _res);
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 58; line = 36 } ~func:"a");
+   _res)
