@@ -40,6 +40,12 @@ type event =
       name : string;
       content : string;
     }
+  | Match of {
+      time : int;
+      id : Id.t;
+      name : string;
+      content : string;
+    }
   | FrameEnd of {
       time : int;
       id : Id.t;
@@ -110,6 +116,9 @@ let emit_argument ~ppx_debug_file ~ppx_debug_id:id what v =
 let emit_value ~ppx_debug_file ~ppx_debug_id:id what v =
   emit_raw ~ppx_debug_file ~ppx_debug_id:id "value" what v
 
+let emit_match ~ppx_debug_file ~ppx_debug_id:id what v =
+  emit_raw ~ppx_debug_file ~ppx_debug_id:id "match" what v
+
 let read ~read_and_print_value filename =
   let file = Scanf.Scanning.open_in_bin filename in
   let rec loop all =
@@ -125,7 +134,7 @@ let read ~read_and_print_value filename =
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
       let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
       loop (FrameEnd { id; time; func } :: all)
-    | "arg" | "value" ->
+    | "arg" | "value" | "match" ->
       let id = Id.deserialize file in
       let what = Scanf.bscanf file "%s@\n" (fun what -> what) in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
@@ -135,6 +144,7 @@ let read ~read_and_print_value filename =
         match typ with
         | "arg" -> Argument { time; id; name = what; content = v }
         | "value" -> Value { time; id; name = what; content = v }
+        | "match" -> Match { time; id; name = what; content = v }
         | _ -> failwith "invalid"
       in
       loop (next :: all)
@@ -163,8 +173,8 @@ let to_tree ?(toplevel = "top level") ~leaf ~node trace =
           (* note that we recurse on trace, not es *)
           let tree, trace = build_tree (e :: es) in
           look_for_end trace (tree :: res)
-        | Value { id; content; name; _ } ->
-          look_for_end es (leaf e id name content :: res)
+        | Match { id; content; name; _ }
+        | Value { id; content; name; _ }
         | Argument { id; content; name; _ } ->
           look_for_end es (leaf e id name content :: res)
       end

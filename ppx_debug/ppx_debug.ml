@@ -282,6 +282,20 @@ let generate_value ~loc cu v =
       [%e A.estring ~loc v]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
+let generate_match ~loc cu name v =
+  [%expr
+    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
+      Ppx_debug_runtime.Config.read ()
+    in
+    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+      ~ppx_debug_id:
+        {
+          file = [%e A.estring ~loc cu];
+          id = [%e A.eint ~loc (fresh ())];
+          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+        }
+      [%e A.estring ~loc name] [%e v]]
+
 let generate_arg ~loc cu arg =
   [%expr
     let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
@@ -529,6 +543,23 @@ let traverse filename modname config =
 
     method! expression e =
       match e with
+      | { pexp_desc = Pexp_match (e, cases); pexp_loc = loc; _ }
+        when config.C.matches ->
+        let e = self#expression e in
+        let cases =
+          List.map
+            (fun c ->
+              {
+                c with
+                pc_guard = Option.map self#expression c.pc_guard;
+                pc_rhs = self#expression c.pc_rhs;
+              })
+            cases
+        in
+        let e =
+          A.pexp_sequence ~loc (generate_match ~loc filename "match" e) e
+        in
+        { e with pexp_desc = Pexp_match (e, cases) }
       | { pexp_desc = Pexp_fun _; _ } when config.C.lambdas ->
         let func = normalize_fn e in
         (* TODO name more uniquely *)

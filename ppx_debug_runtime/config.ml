@@ -22,6 +22,8 @@ type t = {
   internal_tool_log : string;
   (* whether to trace anonymous functions *)
   lambdas : bool;
+  (* whether to trace match discriminees *)
+  matches : bool;
   (* what sorts of printers to generate *)
   variant : variant;
 }
@@ -35,6 +37,7 @@ let default =
     internal_log = "/tmp/ppx_debug.txt";
     internal_tool_log = "/tmp/ppx_debug_tool.txt";
     lambdas = true;
+    matches = true;
     variant = Stdlib;
   }
 
@@ -48,6 +51,8 @@ let parse s =
       | ["enabled"; "false"] -> { t with enabled = false }
       | ["lambdas"; "true"] -> { t with lambdas = true }
       | ["lambdas"; "false"] -> { t with lambdas = false }
+      | ["matches"; "true"] -> { t with matches = true }
+      | ["matches"; "false"] -> { t with matches = false }
       | ["file"; f] -> { t with file = f }
       | ["log"; "true"] -> { t with ppx_logging = true }
       | ["log"; "false"] -> { t with ppx_logging = false }
