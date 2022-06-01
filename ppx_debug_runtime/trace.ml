@@ -144,3 +144,55 @@ let read ~read_and_print_value filename =
   let res = loop [] in
   Scanf.Scanning.close_in file;
   res
+
+let to_tree ?(toplevel = "top level") ~leaf ~node trace =
+  let rec build_tree trace =
+    match trace with
+    | FrameStart { func; _ } :: es ->
+      let trees, trace = look_for_end es [] in
+      (node func trees, trace)
+    | _ :: _ -> failwith "expected FrameStart"
+    | [] -> failwith "empty trace"
+  and look_for_end trace res =
+    match trace with
+    | e :: es ->
+      begin
+        match e with
+        | FrameEnd _ -> (List.rev res, es)
+        | FrameStart _ ->
+          (* note that we recurse on trace, not es *)
+          let tree, trace = build_tree (e :: es) in
+          look_for_end trace (tree :: res)
+        | Value { id; content; name; _ } ->
+          look_for_end es (leaf e id name content :: res)
+        | Argument { id; content; name; _ } ->
+          look_for_end es (leaf e id name content :: res)
+      end
+    | [] -> (List.rev res, [])
+  in
+  (* build_tree returns the collected trees and the remaining trace, so we have to iterate it *)
+  let rec collect_trees trace =
+    match trace with
+    | [] -> []
+    | _ :: _ ->
+      let tree, trace = build_tree trace in
+      tree :: collect_trees trace
+  in
+  node toplevel (collect_trees trace)
+
+(* a tree representation of traces that makes many operations easier *)
+type call =
+  | Event of {
+      name : string;
+      content : string;
+    }
+  | Call of {
+      name : string;
+      calls : call list;
+    }
+
+let to_call_tree trace =
+  to_tree
+    ~node:(fun f trees -> Call { name = f; calls = trees })
+    ~leaf:(fun _e _id name content -> Event { name; content })
+    trace

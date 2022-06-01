@@ -61,56 +61,19 @@ end
 let list_to_tree func trees =
   match trees with
   | [] -> failwith "empty tree?"
-  | [t] -> Tree.Rose (func, [], t, [])
+  (* | [t] -> Tree.Rose (func, [], t, []) *)
   | t :: ts -> Tree.Rose (func, [], t, ts)
 
-let rec collect_trees trace =
-  match trace with
-  | [] -> []
-  | _ :: _ ->
-    let tree, trace = to_tree trace in
-    tree :: collect_trees trace
-
-and to_tree trace =
-  match trace with
-  | e :: es ->
-    begin
-      match e with
-      | Trace.FrameStart { func; _ } ->
-        let trees, trace = look_for_end es [] in
-        (* begin
-             match trees with
-             | [] -> failwith "empty tree?"
-             | [t] -> (Tree.Rose (func, [], t, []), trace)
-             | t :: ts -> (Tree.Rose (func, [], t, ts), trace)
-           end *)
-        (list_to_tree func trees, trace)
-      | _ -> failwith "expected FrameStart"
-    end
-  | [] -> failwith "empty trace"
-
-and look_for_end trace res =
-  match trace with
-  | e :: es ->
-    (match e with
-    | FrameEnd _ -> (List.rev res, es)
-    | FrameStart _ ->
-      let tree, trace = to_tree es in
-      look_for_end trace (tree :: res)
-    | Value { id; content; _ } ->
-      look_for_end es (Leaf (e, (id, content)) :: res)
-    | Argument { id; content; _ } ->
-      look_for_end es (Leaf (e, (id, content)) :: res))
-  | [] -> (List.rev res, [])
-
-let to_trees trace =
-  (* Tree.Rose ("top level", collect_trees trace, Empty, []) *)
-  list_to_tree "top level" (collect_trees trace)
+(* produce a rose tree suitable for traversal via zipper *)
+let to_tree =
+  Trace.to_tree
+    ~leaf:(fun e id _name c -> Tree.Leaf (e, (id, c)))
+    ~node:list_to_tree
 
 let pp_pair pp_a pp_b fmt (a, b) = Format.fprintf fmt "(%a, %a)" pp_a a pp_b b
 
 let view trace =
-  let tree = to_trees trace in
+  let tree = to_tree trace in
   let pp_tree =
     Tree.pp (pp_pair Trace.pp_event (pp_pair Id.pp Format.pp_print_string))
   in
