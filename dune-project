@@ -1,4 +1,4 @@
-(lang dune 2.7)
+(lang dune 3.0)
 
 (name ppx_debug)
 (generate_opam_files true)
