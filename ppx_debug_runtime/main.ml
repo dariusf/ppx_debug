@@ -49,4 +49,9 @@ let main ~read_and_print_value file =
     | "call" ->
       let name = Sys.argv.(2) in
       print_endline (print_call name trace)
+    | "raw" ->
+      let tree = Trace.to_call_tree trace in
+      print_endline (Yojson.Safe.to_string (Trace.call_to_yojson tree))
+      (* (Yojson.Basic.to_string
+         (Yojson.Safe.to_basic ())) *)
     | _ -> print_endline "unknown action"

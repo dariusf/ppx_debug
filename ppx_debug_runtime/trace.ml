@@ -10,8 +10,9 @@ module Id = struct
     (* modname : string; *)
     line : int;
   }
-  [@@deriving show { with_path = false }]
+  [@@deriving show { with_path = false }, yojson]
 
+  let dummy = { file = "_none"; id = -1; line = -1 }
   let serialize { file; id; line } = Format.sprintf "%s:%d:%d" file id line
 
   let deserialize file =
@@ -158,9 +159,9 @@ let read ~read_and_print_value filename =
 let to_tree ?(toplevel = "top level") ~leaf ~node trace =
   let rec build_tree trace =
     match trace with
-    | FrameStart { func; _ } :: es ->
+    | FrameStart { func; id; _ } :: es ->
       let trees, trace = look_for_end es [] in
-      (node func trees, trace)
+      (node func id trees, trace)
     | _ :: _ -> failwith "expected FrameStart"
     | [] -> failwith "empty trace"
   and look_for_end trace res =
@@ -188,21 +189,24 @@ let to_tree ?(toplevel = "top level") ~leaf ~node trace =
       let tree, trace = build_tree trace in
       tree :: collect_trees trace
   in
-  node toplevel (collect_trees trace)
+  node toplevel Id.dummy (collect_trees trace)
 
 (* a tree representation of traces that makes many operations easier *)
 type call =
   | Event of {
       name : string;
       content : string;
+      id : Id.t;
     }
   | Call of {
       name : string;
       calls : call list;
+      id : Id.t;
     }
+[@@deriving yojson]
 
 let to_call_tree trace =
   to_tree
-    ~node:(fun f trees -> Call { name = f; calls = trees })
-    ~leaf:(fun _e _id name content -> Event { name; content })
+    ~node:(fun f id trees -> Call { name = f; calls = trees; id })
+    ~leaf:(fun _e id name content -> Event { name; content; id })
     trace
