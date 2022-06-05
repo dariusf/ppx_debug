@@ -210,3 +210,190 @@ let to_call_tree trace =
     ~node:(fun f id trees -> Call { name = f; calls = trees; id })
     ~leaf:(fun _e id name content -> Event { name; content; id })
     trace
+
+let group_sorted f xs =
+  let rec loop res xs =
+    match (xs, res) with
+    | [], _ -> List.rev res
+    | x :: xs, [] -> loop ([x] :: res) xs
+    | x :: xs, (r :: rs) :: rs1 ->
+      if f x = f r then loop ((x :: r :: rs) :: rs1) xs
+      else loop ([x] :: (r :: rs) :: rs1) xs
+    | _ :: _, [] :: _ ->
+      (* this isn't possible as we can't create an empty group *)
+      failwith "invalid"
+  in
+  loop [] xs
+
+let%expect_test _ =
+  let show a = a |> [%derive.show: int list list] |> print_endline in
+  group_sorted Fun.id [1; 1; 2; 3; 3; 4] |> show;
+  [%expect {| [[1; 1]; [2]; [3; 3]; [4]] |}]
+
+(**
+  Walks the call tree as if it were being stepped through (preorder, depth-first),
+  numbering each node and computing a few relations between nodes.
+
+  Many relations are inverses (next/back, out/in, next_sibling/prev_sibling).
+  Not all are useful, e.g. next subsumes in and would probably be used to implement a debugger's "step in" command.
+  Not all correspond directly to debugger actions, e.g. "step out" would be done by composing out and next_sibling.
+
+  Outputs JSON. Could be used for the zipper viewer but we would have to separate the JSON encoding phase.
+*)
+let preprocess_for_debugging tree : Yojson.Safe.t =
+  let fresh =
+    let i = ref 0 in
+    fun () ->
+      let r = !i in
+      incr i;
+      r
+  in
+  let rec loop prev lineage nodes edges t =
+    (* this node id *)
+    let nid = fresh () in
+    (* compute all the relations *)
+    let step_out, step_in =
+      match lineage with
+      | [] -> ([], [])
+      | n :: _ ->
+        (* don't add an in node twice *)
+        let in_ = [(n, ("in", nid))] in
+        (* return the id of the current node, so it may be used as the previous node of the next one *)
+        let out = [(nid, ("out", n))] in
+        (out, in_)
+    in
+    let step_back, step_next =
+      match prev with
+      | None -> ([], [])
+      | Some p ->
+        let back = [(nid, ("back", p))] in
+        let next = [(p, ("next", nid))] in
+        (back, next)
+    in
+    let new_edges = step_in @ step_back @ step_out @ step_next in
+    (* decide what to present for each kind of node *)
+    match t with
+    | Event { id; name; _ } ->
+      let this = `Assoc [("id", Id.to_yojson id); ("name", `String name)] in
+      (nid, nid, (nid, this) :: nodes, new_edges @ edges)
+    | Call { id; name; calls; _ } ->
+      let this = `Assoc [("id", Id.to_yojson id); ("name", `String name)] in
+      let nodes, edges = ((nid, this) :: nodes, new_edges @ edges) in
+      (* extend lineage once for all children *)
+      let lin = nid :: lineage in
+      (* pre-order traversal, left to right *)
+      let _last_sib, cpid, ns, es =
+        List.fold_left
+          (fun (prev_sib, prv, ns, es) c ->
+            (* previous node updates on each iteration *)
+            let sid, cid, ns1, es1 = loop (Some prv) lin ns es c in
+            (* track siblings *)
+            let extra =
+              match prev_sib with
+              | None -> []
+              | Some s ->
+                [(s, ("next_sibling", sid)); (sid, ("prev_sibling", s))]
+            in
+            (Some sid, cid, ns1, extra @ es1))
+          (None, nid, nodes, edges) calls
+      in
+      (* nid is our id. cpid is the id of the last thing that executed, which may be a child *)
+      (nid, cpid, ns, es)
+  in
+  let _sid, _nid, nodes, edges = loop None [] [] [] tree in
+  (* encode into json *)
+  let nodes =
+    nodes |> List.rev |> List.map (fun (id, n) -> (string_of_int id, n))
+  in
+  let edges =
+    List.sort (fun (e1, _) (e2, _) -> compare e1 e2) edges
+    |> group_sorted fst
+    |> List.map (fun g ->
+           let kvs = List.map (fun (_gid, (k, v)) -> (k, v)) g in
+           let kvs =
+             (* fix in keys. there will be many because we keep track of all. keep only the minimum, which is correct because we do a pre-order traversal and generate fresh ids in that order *)
+             let in_keys, non_in =
+               List.partition (fun (k, _) -> k = "in") kvs
+             in
+             match in_keys with
+             | [] -> non_in
+             | _ ->
+               let min_val =
+                 List.fold_right (fun (_, c) t -> min c t) in_keys Int.max_int
+               in
+               ("in", min_val) :: non_in
+           in
+           let kvs = List.map (fun (k, v) -> (k, `Int v)) kvs in
+           let gid =
+             match g with
+             | (gid, _) :: _ -> gid
+             | [] -> failwith "invalid, empty group"
+           in
+           (string_of_int gid, `Assoc kvs))
+  in
+  let edges : Yojson.Safe.t = `Assoc edges in
+  `Assoc [("nodes", `Assoc nodes); ("edges", edges)]
+
+let%expect_test _ =
+  let tree =
+    Call
+      {
+        (* 0 *)
+        name = "f";
+        id = Id.dummy;
+        calls =
+          [
+            Event { (* 1 *)
+                    name = "a"; content = "x"; id = Id.dummy };
+            Event { (* 2 *)
+                    name = "b"; content = "y"; id = Id.dummy };
+            Call
+              {
+                (* 3 *)
+                name = "g";
+                id = Id.dummy;
+                calls =
+                  [Event { (* 4 *)
+                           name = "c"; content = "z"; id = Id.dummy }];
+              };
+            Event { (* 5 *)
+                    name = "d"; content = "w"; id = Id.dummy };
+          ];
+      }
+  in
+  let debug = preprocess_for_debugging tree in
+  Yojson.Safe.pretty_to_string debug |> print_endline;
+  [%expect
+    {|
+    {
+      "nodes": {
+        "0": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "f" },
+        "1": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "a" },
+        "2": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "b" },
+        "3": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "g" },
+        "4": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "c" },
+        "5": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "d" }
+      },
+      "edges": {
+        "0": { "in": 1, "next": 1 },
+        "1": { "out": 0, "back": 0, "next": 2, "next_sibling": 2 },
+        "2": {
+          "out": 0,
+          "back": 1,
+          "prev_sibling": 1,
+          "next": 3,
+          "next_sibling": 3
+        },
+        "3": {
+          "in": 4,
+          "out": 0,
+          "back": 2,
+          "next": 4,
+          "prev_sibling": 2,
+          "next_sibling": 5
+        },
+        "4": { "out": 3, "back": 3, "next": 5 },
+        "5": { "out": 0, "back": 4, "prev_sibling": 3 }
+      }
+    }
+  |}]

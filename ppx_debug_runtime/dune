@@ -2,7 +2,8 @@
  (name ppx_debug_runtime)
  (public_name ppx_debug_runtime)
  (libraries linenoise yojson unix)
- (preprocess (pps ppx_deriving.show ppx_deriving_yojson)))
+ (inline_tests)
+ (preprocess (pps ppx_deriving.show ppx_deriving_yojson ppx_expect)))
 
 (env
  (dev
