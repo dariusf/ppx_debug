@@ -58,7 +58,7 @@ module Tree = struct
   let ( >>= ) = Option.bind
 end
 
-let list_to_tree func _id trees =
+let list_to_tree func _id _args trees =
   match trees with
   | [] -> failwith "empty tree?"
   (* | [t] -> Tree.Rose (func, [], t, []) *)

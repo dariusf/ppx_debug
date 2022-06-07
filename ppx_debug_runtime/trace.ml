@@ -160,26 +160,28 @@ let to_tree ?(toplevel = "top level") ~leaf ~node trace =
   let rec build_tree trace =
     match trace with
     | FrameStart { func; id; _ } :: es ->
-      let trees, trace = look_for_end es [] in
-      (node func id trees, trace)
+      let trace, args, trees = look_for_end es [] [] in
+      (node func id args trees, trace)
     | _ :: _ -> failwith "expected FrameStart"
     | [] -> failwith "empty trace"
-  and look_for_end trace res =
+  and look_for_end
+      (* event list -> int list -> call list -> event list * int list * call list = *)
+        trace args res =
     match trace with
     | e :: es ->
       begin
         match e with
-        | FrameEnd _ -> (List.rev res, es)
+        | FrameEnd _ -> (es, List.rev args, List.rev res)
         | FrameStart _ ->
           (* note that we recurse on trace, not es *)
           let tree, trace = build_tree (e :: es) in
-          look_for_end trace (tree :: res)
-        | Match { id; content; name; _ }
-        | Value { id; content; name; _ }
-        | Argument { id; content; name; _ } ->
-          look_for_end es (leaf e id name content :: res)
+          look_for_end trace args (tree :: res)
+        | Match { id; content; name; _ } | Value { id; content; name; _ } ->
+          look_for_end es args (leaf e id name content :: res)
+        | Argument { content; name; _ } ->
+          look_for_end es ((name, content) :: args) res
       end
-    | [] -> (List.rev res, [])
+    | [] -> ([], List.rev args, List.rev res)
   in
   (* build_tree returns the collected trees and the remaining trace, so we have to iterate it *)
   let rec collect_trees trace =
@@ -189,7 +191,7 @@ let to_tree ?(toplevel = "top level") ~leaf ~node trace =
       let tree, trace = build_tree trace in
       tree :: collect_trees trace
   in
-  node toplevel Id.dummy (collect_trees trace)
+  node toplevel Id.dummy [] (collect_trees trace)
 
 (* a tree representation of traces that makes many operations easier *)
 type call =
@@ -200,6 +202,7 @@ type call =
     }
   | Call of {
       name : string;
+      args : (string * string) list;
       calls : call list;
       id : Id.t;
     }
@@ -207,7 +210,7 @@ type call =
 
 let to_call_tree trace =
   to_tree
-    ~node:(fun f id trees -> Call { name = f; calls = trees; id })
+    ~node:(fun f id args trees -> Call { name = f; calls = trees; args; id })
     ~leaf:(fun _e id name content -> Event { name; content; id })
     trace
 
@@ -273,11 +276,25 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
     let new_edges = step_in @ step_back @ step_out @ step_next in
     (* decide what to present for each kind of node *)
     match t with
-    | Event { id; name; _ } ->
-      let this = `Assoc [("id", Id.to_yojson id); ("name", `String name)] in
+    | Event { id; name; content } ->
+      let this =
+        `Assoc
+          [
+            ("id", Id.to_yojson id);
+            ("name", `String name);
+            ("content", `String content);
+          ]
+      in
       (nid, nid, (nid, this) :: nodes, new_edges @ edges)
-    | Call { id; name; calls; _ } ->
-      let this = `Assoc [("id", Id.to_yojson id); ("name", `String name)] in
+    | Call { id; name; calls; args } ->
+      let this =
+        `Assoc
+          [
+            ("id", Id.to_yojson id);
+            ("name", `String name);
+            ("args", `Assoc (List.map (fun (k, v) -> (k, `String v)) args));
+          ]
+      in
       let nodes, edges = ((nid, this) :: nodes, new_edges @ edges) in
       (* extend lineage once for all children *)
       let lin = nid :: lineage in
@@ -346,6 +363,7 @@ let%expect_test _ =
         (* 0 *)
         name = "f";
         id = Id.dummy;
+        args = [];
         calls =
           [
             Event { (* 1 *)
@@ -357,6 +375,7 @@ let%expect_test _ =
                 (* 3 *)
                 name = "g";
                 id = Id.dummy;
+                args = [];
                 calls =
                   [Event { (* 4 *)
                            name = "c"; content = "z"; id = Id.dummy }];
@@ -372,12 +391,36 @@ let%expect_test _ =
     {|
     {
       "nodes": {
-        "0": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "f" },
-        "1": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "a" },
-        "2": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "b" },
-        "3": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "g" },
-        "4": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "c" },
-        "5": { "id": { "file": "_none", "id": -1, "line": -1 }, "name": "d" }
+        "0": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "f",
+          "args": {}
+        },
+        "1": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "a",
+          "content": "x"
+        },
+        "2": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "b",
+          "content": "y"
+        },
+        "3": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "g",
+          "args": {}
+        },
+        "4": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "c",
+          "content": "z"
+        },
+        "5": {
+          "id": { "file": "_none", "id": -1, "line": -1 },
+          "name": "d",
+          "content": "w"
+        }
       },
       "edges": {
         "0": { "in": 1, "next": 1 },
