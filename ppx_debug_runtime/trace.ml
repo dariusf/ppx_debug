@@ -332,7 +332,12 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
            (string_of_int gid, `Assoc kvs))
   in
   let edges : Yojson.Safe.t = `Assoc edges in
-  `Assoc [("nodes", `Assoc nodes); ("edges", edges)]
+  `Assoc
+    [
+      ("nodes", `Assoc nodes);
+      ("edges", edges);
+      ("last", `Int (List.length nodes - 1));
+    ]
 
 let%expect_test _ =
   let tree =
@@ -394,6 +399,7 @@ let%expect_test _ =
         },
         "4": { "out": 3, "back": 3, "next": 5 },
         "5": { "out": 0, "back": 4, "prev_sibling": 3 }
-      }
+      },
+      "last": 5
     }
   |}]
