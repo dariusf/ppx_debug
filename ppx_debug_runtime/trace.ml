@@ -233,6 +233,17 @@ let%expect_test _ =
   group_sorted Fun.id [1; 1; 2; 3; 3; 4] |> show;
   [%expect {| [[1; 1]; [2]; [3; 3]; [4]] |}]
 
+let group_by ~key ~value ~group xs =
+  xs
+  |> List.sort (fun kv1 kv2 -> compare (key kv1) (key kv2))
+  |> group_sorted key
+  |> List.map (fun g ->
+         let k =
+           match g with [] -> failwith "empty group" | kv :: _ -> key kv
+         in
+         let vs = List.map value g in
+         group k vs)
+
 (**
   Walks the call tree as if it were being stepped through (preorder, depth-first),
   numbering each node and computing a few relations between nodes.
@@ -251,7 +262,7 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
       incr i;
       r
   in
-  let rec loop prev lineage nodes edges t =
+  let rec loop prev lineage nodes edges breakpoints t =
     (* this node id *)
     let nid = fresh () in
     (* compute all the relations *)
@@ -277,6 +288,7 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
     (* decide what to present for each kind of node *)
     match t with
     | Event { id; name; content } ->
+      let breakpoints = (id.line, nid) :: breakpoints in
       let this =
         `Assoc
           [
@@ -285,8 +297,9 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
             ("content", `String content);
           ]
       in
-      (nid, nid, (nid, this) :: nodes, new_edges @ edges)
+      (nid, nid, (nid, this) :: nodes, new_edges @ edges, breakpoints)
     | Call { id; name; calls; args } ->
+      let breakpoints = (id.line, nid) :: breakpoints in
       let this =
         `Assoc
           [
@@ -299,11 +312,11 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
       (* extend lineage once for all children *)
       let lin = nid :: lineage in
       (* pre-order traversal, left to right *)
-      let _last_sib, cpid, ns, es =
+      let _last_sib, cpid, ns, es, bs =
         List.fold_left
-          (fun (prev_sib, prv, ns, es) c ->
+          (fun (prev_sib, prv, ns, es, bs) c ->
             (* previous node updates on each iteration *)
-            let sid, cid, ns1, es1 = loop (Some prv) lin ns es c in
+            let sid, cid, ns1, es1, bs1 = loop (Some prv) lin ns es bs c in
             (* track siblings *)
             let extra =
               match prev_sib with
@@ -311,42 +324,41 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
               | Some s ->
                 [(s, ("next_sibling", sid)); (sid, ("prev_sibling", s))]
             in
-            (Some sid, cid, ns1, extra @ es1))
-          (None, nid, nodes, edges) calls
+            (Some sid, cid, ns1, extra @ es1, bs1))
+          (None, nid, nodes, edges, breakpoints)
+          calls
       in
       (* nid is our id. cpid is the id of the last thing that executed, which may be a child *)
-      (nid, cpid, ns, es)
+      (nid, cpid, ns, es, bs)
   in
-  let _sid, _nid, nodes, edges = loop None [] [] [] tree in
+  let _sid, _nid, nodes, edges, breakpoints = loop None [] [] [] [] tree in
   (* encode into json *)
+  let breakpoints =
+    group_by ~key:fst ~value:snd
+      ~group:(fun k vs ->
+        (string_of_int k, `List (List.map (fun i -> `Int i) vs)))
+      breakpoints
+  in
   let nodes =
     nodes |> List.rev |> List.map (fun (id, n) -> (string_of_int id, n))
   in
   let edges =
-    List.sort (fun (e1, _) (e2, _) -> compare e1 e2) edges
-    |> group_sorted fst
-    |> List.map (fun g ->
-           let kvs = List.map (fun (_gid, (k, v)) -> (k, v)) g in
-           let kvs =
-             (* fix in keys. there will be many because we keep track of all. keep only the minimum, which is correct because we do a pre-order traversal and generate fresh ids in that order *)
-             let in_keys, non_in =
-               List.partition (fun (k, _) -> k = "in") kvs
-             in
-             match in_keys with
-             | [] -> non_in
-             | _ ->
-               let min_val =
-                 List.fold_right (fun (_, c) t -> min c t) in_keys Int.max_int
-               in
-               ("in", min_val) :: non_in
-           in
-           let kvs = List.map (fun (k, v) -> (k, `Int v)) kvs in
-           let gid =
-             match g with
-             | (gid, _) :: _ -> gid
-             | [] -> failwith "invalid, empty group"
-           in
-           (string_of_int gid, `Assoc kvs))
+    group_by ~key:fst ~value:snd
+      ~group:(fun gid kvs ->
+        let kvs =
+          (* fix in keys. there will be many because we keep track of all. keep only the minimum, which is correct because we do a pre-order traversal and generate fresh ids in that order *)
+          let in_keys, non_in = List.partition (fun (k, _) -> k = "in") kvs in
+          match in_keys with
+          | [] -> non_in
+          | _ ->
+            let min_val =
+              List.fold_right (fun (_, c) t -> min c t) in_keys Int.max_int
+            in
+            ("in", min_val) :: non_in
+        in
+        let kvs = List.map (fun (k, v) -> (k, `Int v)) kvs in
+        (string_of_int gid, `Assoc kvs))
+      edges
   in
   let edges : Yojson.Safe.t = `Assoc edges in
   `Assoc
@@ -354,6 +366,8 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
       ("nodes", `Assoc nodes);
       ("edges", edges);
       ("last", `Int (List.length nodes - 1));
+      (* this maps line to id *)
+      ("breakpoints", `Assoc breakpoints);
     ]
 
 let%expect_test _ =
@@ -443,6 +457,7 @@ let%expect_test _ =
         "4": { "out": 3, "back": 3, "next": 5 },
         "5": { "out": 0, "back": 4, "prev_sibling": 3 }
       },
-      "last": 5
+      "last": 5,
+      "breakpoints": { "-1": [ 0, 1, 2, 3, 4, 5 ] }
     }
   |}]
