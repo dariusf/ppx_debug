@@ -24,12 +24,20 @@ let print_call call trace =
         if String.equal c.name call then
           [
             `Assoc
-              ([("call", `String c.name)]
-              @ List.filter_map
-                  (function
-                    | Trace.Event e -> Some (e.name, `String e.content)
-                    | _ -> None)
-                  c.calls);
+              [
+                ("call", `String c.name);
+                (* TODO line? *)
+                ("args", `Assoc (List.map (fun (n, v) -> (n, `String v)) c.args));
+                ( "events",
+                  `List
+                    (List.filter_map
+                       (function
+                         (* TODO line? *)
+                         | Trace.Event e ->
+                           Some (`Assoc [(e.name, `String e.content)])
+                         | _ -> None)
+                       c.calls) );
+              ];
           ]
         else []
       in
