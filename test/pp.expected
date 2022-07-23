@@ -377,3 +377,26 @@ let lambda_unhandled () =
       ~ppx_debug_id:{ file = "test.ml"; id = 61; line = 40 }
       ~func:"lambda_unhandled");
    _res)
+let keep_type_annotations t =
+  let keep_type_annotations_original t = t in
+  (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+     Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+     ~ppx_debug_id:{ file = "test.ml"; id = 63; line = 41 }
+     ~func:"keep_type_annotations");
+  ((let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 65; line = 41 } "t" t);
+   ());
+  (let _res = keep_type_annotations_original t in
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 66; line = 41 } "_res" _res);
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 64; line = 41 }
+      ~func:"keep_type_annotations");
+   _res)

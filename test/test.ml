@@ -38,3 +38,4 @@ let a () =
   [%trace x]
 
 let lambda_unhandled () = List.map (fun (a, b) -> a + b) [(1, 2)]
+let keep_type_annotations (t : int) = t
