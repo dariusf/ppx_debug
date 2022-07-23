@@ -72,6 +72,18 @@ let create_typ_name ~loc _qual exp_type =
 (* why pp? because show is non-compositional *)
 let rec create_pp_fn ~loc qual exp_type =
   let variant = (C.read ()).variant in
+  let handle_result a b =
+    (* can't use this as it specializes the second arg to string *)
+    (* (match containers with
+       | true ->
+         [%expr Result.pp [%e generate_printer_typ a] [%e generate_printer_typ b]]
+       | _ -> *)
+    Ppxlib.(
+      [%expr
+        Format.pp_print_result ~ok:[%e create_pp_fn ~loc qual a]
+          ~error:[%e create_pp_fn ~loc qual b]])
+    (* ) *)
+  in
   match Types.get_desc exp_type with
   | Tconstr (Pident ident, _, _) when String.equal (Ident.name ident) "int" ->
     Ppxlib.(
@@ -98,15 +110,10 @@ let rec create_pp_fn ~loc qual exp_type =
     | Stdlib -> [%expr Format.pp_print_option [%e create_pp_fn ~loc qual a]])
   | Tconstr (Pident ident, [a; b], _)
     when String.equal (Ident.name ident) "result" ->
-    (* can't use this as it specializes the second arg to string *)
-    (* (match containers with
-       | true ->
-         [%expr Result.pp [%e generate_printer_typ a] [%e generate_printer_typ b]]
-       | _ -> *)
-    [%expr
-      Format.pp_print_result ~ok:[%e create_pp_fn ~loc qual a]
-        ~error:[%e create_pp_fn ~loc qual b]]
-    (* ) *)
+    handle_result a b
+  | Tconstr (Pdot (Pident q, "result"), [a; b], _)
+    when String.equal (Ident.name q) "Stdlib" ->
+    handle_result a b
   | Tconstr (Pident ident, [a], _) when String.equal (Ident.name ident) "list"
     ->
     (match variant with
@@ -137,24 +144,32 @@ let rec create_pp_fn ~loc qual exp_type =
       | Pident i -> Lident (Ident.name i)
       | Papply _ -> failwith "no correspondence"
     in
-    let f =
-      A.pexp_ident ~loc
-        {
-          loc;
-          txt =
-            Ldot
-              ( path_to_lident q,
-                match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
-        }
-    in
-    (match args with
-    | [] -> f
-    | _ :: _ ->
-      let p_args =
-        List.map (create_pp_fn ~loc qual) args
-        |> List.map (fun a -> (Ppxlib.Nolabel, a))
-      in
-      A.pexp_apply ~loc f p_args)
+    begin
+      match q with
+      | Pident i
+        when String.equal (Ident.name i) "Stdlib"
+             && List.mem ~eq:String.equal ident ["in_channel"] ->
+        [%expr fun fmt _ -> Format.fprintf fmt "<opaque>"]
+      | _ ->
+        let f =
+          A.pexp_ident ~loc
+            {
+              loc;
+              txt =
+                Ldot
+                  ( path_to_lident q,
+                    match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
+            }
+        in
+        (match args with
+        | [] -> f
+        | _ :: _ ->
+          let p_args =
+            List.map (create_pp_fn ~loc qual) args
+            |> List.map (fun a -> (Ppxlib.Nolabel, a))
+          in
+          A.pexp_apply ~loc f p_args)
+    end
   | Tconstr (Pident ident, args, _) ->
     let f =
       A.pexp_ident ~loc
@@ -178,12 +193,16 @@ let rec create_pp_fn ~loc qual exp_type =
       A.pexp_apply ~loc f p_args)
   | Tvar _ -> [%expr fun fmt _ -> Format.fprintf fmt "<poly>"]
   | Tarrow _ -> [%expr fun fmt _ -> Format.fprintf fmt "<fn>"]
+  | Ttuple _ ->
+    (* TODO *)
+    [%expr fun fmt _ -> Format.fprintf fmt "<tuple>"]
   (* "Lib." ^ Ident.name ident *)
   (* "x" *)
   (* | T (Pident ident, _, _) -> *)
   | _ ->
-    p_te exp_type;
-    failwith "nyi"
+    (* p_te exp_type; *)
+    (* failwith "nyi" *)
+    [%expr fun fmt _ -> Format.fprintf fmt "<unimplemented>"]
 
 let handle_expr modname it expr =
   let loc = expr.Typedtree.exp_loc in
@@ -274,7 +293,7 @@ let handle_expr modname it expr =
        match typ with
        | Some typ -> *)
     let () =
-      log "%s %d -> %a %a" site_id.file site_id.id Printtyp.type_expr exp_type
+      log "%s %d -> %a | %a" site_id.file site_id.id Printtyp.type_expr exp_type
         Ppxlib.Pprintast.expression pp_fn
     in
     id_type_mappings := (site_id, { pp_fn; typ }) :: !id_type_mappings
