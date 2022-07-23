@@ -2,7 +2,7 @@ let rec print_tree d trace =
   match trace with
   | [] -> ()
   | Trace.FrameStart f :: ts ->
-    Format.printf "%s%s@." (String.init d (fun _ -> ' ')) f.func;
+    Format.printf "%s%s %d@." (String.init d (fun _ -> ' ')) f.func f.id.id;
     print_tree (d + 2) ts
   | FrameEnd _ :: ts -> print_tree (d - 2) ts
   | _ :: ts -> print_tree d ts
@@ -63,19 +63,28 @@ let main ~read_and_print_value file =
     Chrome_trace.trace_to_chrome trace |> print_endline
   else
     match Sys.argv.(1) with
-    | "tree" -> print_tree 0 trace
-    | "calls" -> print_calls trace
+    | "tree" ->
+      (* a call tree, without arguments *)
+      (* TODO a means to print a specific call *)
+      print_tree 0 trace
+    | "calls" ->
+      (* a list of all calls *)
+      print_calls trace
     | "call" ->
+      (* find calls by (string) name *)
       let name = Sys.argv.(2) in
       print_endline (print_call name trace)
     | "raw" ->
+      (* the raw data in the trace *)
       let tree = Trace.to_call_tree trace in
       print_endline (Yojson.Safe.to_string (Trace.call_to_yojson tree))
     | "linear" ->
+      (* probably useless *)
       let tree = Trace.to_call_tree trace in
       let linear = linearize tree in
       print_endline (Yojson.Safe.to_string linear)
     | "debug" ->
+      (* a preprocessed trace for navigation by an interactive debugger *)
       let tree = Trace.to_call_tree trace in
       let json = Trace.preprocess_for_debugging tree in
       print_endline (Yojson.Safe.to_string json)
