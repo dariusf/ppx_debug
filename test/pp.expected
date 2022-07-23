@@ -358,3 +358,22 @@ let a () =
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
       ~ppx_debug_id:{ file = "test.ml"; id = 58; line = 36 } ~func:"a");
    _res)
+let lambda_unhandled () =
+  let lambda_unhandled_original () = List.map (fun (a, b) -> a + b) [(1, 2)] in
+  (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+     Ppx_debug_runtime.Config.read () in
+   Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+     ~ppx_debug_id:{ file = "test.ml"; id = 60; line = 40 }
+     ~func:"lambda_unhandled");
+  ();
+  (let _res = lambda_unhandled_original () in
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 62; line = 40 } "_res" _res);
+   (let Ppx_debug_runtime.Config.{ file = ppx_debug_file;_}  =
+      Ppx_debug_runtime.Config.read () in
+    Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+      ~ppx_debug_id:{ file = "test.ml"; id = 61; line = 40 }
+      ~func:"lambda_unhandled");
+   _res)

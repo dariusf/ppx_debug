@@ -36,3 +36,5 @@ let z =
 let a () =
   let x = 1 in
   [%trace x]
+
+let lambda_unhandled () = List.map (fun (a, b) -> a + b) [(1, 2)]

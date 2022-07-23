@@ -581,8 +581,14 @@ let traverse filename modname config =
       | { pexp_desc = Pexp_fun _; _ } when config.C.lambdas ->
         let func = normalize_fn e in
         (* TODO name more uniquely *)
-        let func = { func with body = self#expression func.body } in
-        nonrecursive_rhs filename func
+        if CCEqual.physical func.body e then
+          (* TODO skip transforming if we can't handle this, instead of going into a loop.
+             the problem is the lossy param repr we use.
+             normalize_fn should be guaranteed to return a smaller expression. *)
+          e
+        else
+          let func = { func with body = self#expression func.body } in
+          nonrecursive_rhs filename func
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
         ->
         let bindings =
