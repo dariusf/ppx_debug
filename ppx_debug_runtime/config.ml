@@ -41,9 +41,9 @@ let default =
     variant = Stdlib;
   }
 
-(* mode=All,f,g; blah=a,b,c *)
+(* mode=All,f,g+blah=a,b,c *)
 let parse s =
-  let kvps = s |> String.split_on_char ';' in
+  let kvps = s |> String.split_on_char '+' in
   List.fold_right
     (fun c t ->
       match c |> String.trim |> String.split_on_char '=' with
@@ -64,9 +64,9 @@ let parse s =
           | "All" :: blacklist -> { t with mode = All blacklist }
           | "Some" :: whitelist -> { t with mode = Some whitelist }
           | "Modules" :: whitelist -> { t with mode = Modules whitelist }
-          | _ -> failwith "unable to parse"
+          | m -> failwith ("unable to parse mode " ^ String.concat "," m)
         end
-      | _ -> failwith "unable to parse")
+      | _ -> failwith ("unable to parse config: " ^ s))
     kvps default
 
 (* memoize because this may be called many times and environment variables don't change *)
