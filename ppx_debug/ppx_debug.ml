@@ -613,7 +613,7 @@ let traverse filename modname config =
               e with
               pexp_desc =
                 Pexp_let
-                  ( Nonrecursive,
+                  ( rec_flag,
                     transform_bindings filename modname config rec_flag bindings,
                     body );
             }

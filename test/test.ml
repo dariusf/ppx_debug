@@ -17,6 +17,14 @@ let succ : int -> int = fun n -> n + 1
 let rec ping : int -> int = fun n -> match n with 0 -> 1 | _ -> pong (n - 1)
 and pong : int -> int = fun n -> match n with 0 -> 1 | _ -> ping (n - 1)
 
+let ext =
+  let rec ping1 : int -> int =
+   fun n -> match n with 0 -> 1 | _ -> pong1 (n - 1)
+  and pong1 : int -> int =
+   fun n -> match n with 0 -> 1 | _ -> ping1 (n - 1)
+  in
+  ping1 2
+
 let a f =
   let b f =
     let c f = f in
