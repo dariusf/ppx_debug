@@ -45,8 +45,14 @@ end =
 let abstr_type (t : Abstr.t) = t
 let prv_type (t : Priv.t) = t
 
+open Mod
+module Mod = Mod
+
+let aaa (t : Qual.t) = match t with Qual a -> a
+
 let main () =
   let z = Node [Node [Leaf 1]; Leaf 2] in
+  aaa (Qual 1) |> ignore;
   depth z |> ignore;
   fact 5 |> ignore;
   fib 3 |> ignore;
