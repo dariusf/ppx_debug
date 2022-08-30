@@ -69,8 +69,16 @@ let create_typ_name ~loc _qual exp_type =
   | _ -> None
 (* Some (A.ptyp_var ~loc "nyi") *)
 
-(* why pp? because show is non-compositional *)
-let rec create_pp_fn ~loc qual exp_type =
+(* let contains s1 s2 =
+    let re = Str.regexp_string s2
+    in
+        try ignore (Str.search_forward re s1 0); true
+        with Not_found -> false *)
+
+(* pp because show is non-compositional.
+   file and qual are for the current compilation unit, i.e. where exp_type is used.
+*)
+let rec create_pp_fn ~loc file qual exp_type =
   let variant = (C.read ()).variant in
   let handle_result a b =
     (* can't use this as it specializes the second arg to string *)
@@ -80,8 +88,9 @@ let rec create_pp_fn ~loc qual exp_type =
        | _ -> *)
     Ppxlib.(
       [%expr
-        Format.pp_print_result ~ok:[%e create_pp_fn ~loc qual a]
-          ~error:[%e create_pp_fn ~loc qual b]])
+        Format.pp_print_result
+          ~ok:[%e create_pp_fn ~loc file qual a]
+          ~error:[%e create_pp_fn ~loc file qual b]])
     (* ) *)
   in
   match Types.get_desc exp_type with
@@ -90,6 +99,11 @@ let rec create_pp_fn ~loc qual exp_type =
       (match variant with
       | Containers -> [%expr CCInt.pp]
       | Stdlib -> [%expr Format.pp_print_int]))
+  | Tconstr (Pident ident, _, _) when String.equal (Ident.name ident) "char" ->
+    Ppxlib.(
+      (match variant with
+      | Containers -> [%expr CCChar.pp]
+      | Stdlib -> [%expr Format.pp_print_char]))
   | Tconstr (Pident ident, _, _) when String.equal (Ident.name ident) "float" ->
     (match variant with
     | Containers -> [%expr CCFloat.pp]
@@ -106,8 +120,9 @@ let rec create_pp_fn ~loc qual exp_type =
   | Tconstr (Pident ident, [a], _) when String.equal (Ident.name ident) "option"
     ->
     (match variant with
-    | Containers -> [%expr CCOpt.pp [%e create_pp_fn ~loc qual a]]
-    | Stdlib -> [%expr Format.pp_print_option [%e create_pp_fn ~loc qual a]])
+    | Containers -> [%expr CCOpt.pp [%e create_pp_fn ~loc file qual a]]
+    | Stdlib ->
+      [%expr Format.pp_print_option [%e create_pp_fn ~loc file qual a]])
   | Tconstr (Pident ident, [a; b], _)
     when String.equal (Ident.name ident) "result" ->
     handle_result a b
@@ -123,19 +138,22 @@ let rec create_pp_fn ~loc qual exp_type =
           ~pp_start:(fun fmt () -> Format.fprintf fmt "[")
           ~pp_stop:(fun fmt () -> Format.fprintf fmt "]")
           ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
-          [%e create_pp_fn ~loc qual a]]
+          [%e create_pp_fn ~loc file qual a]]
     | Stdlib ->
       [%expr
         fun fmt xs ->
           Format.fprintf fmt "[";
           Format.pp_print_list
             ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@ ")
-            [%e create_pp_fn ~loc qual a] fmt xs;
+            [%e create_pp_fn ~loc file qual a]
+            fmt xs;
           Format.fprintf fmt "]"])
   | Tconstr (Pident ident, [], _) when String.equal (Ident.name ident) "unit" ->
     [%expr fun fmt () -> Format.fprintf fmt "()"]
     (* the following two cases are the same except for the qualifiers *)
-  | Tconstr (Pdot (q, ident), args, _) ->
+  | Tconstr (id, args, _) ->
+    (* log "qualified ident %a" Path.print id; *)
+    (* Pdot (q, ident) *)
     (* qual is where the use of the type is found, q is where the type is defined *)
     (* TOOD existing uses of qual are probably wrong *)
     let rec path_to_lident p =
@@ -144,53 +162,170 @@ let rec create_pp_fn ~loc qual exp_type =
       | Pident i -> Lident (Ident.name i)
       | Papply _ -> failwith "no correspondence"
     in
+    let flatten_path p =
+      match Path.flatten p with
+      | `Ok (h, xs) -> Ident.name h :: xs
+      | `Contains_apply -> failwith "adklj"
+    in
+    let path_to_s p = flatten_path p |> String.concat "." in
+    let mappings =
+      (* List.assoc_opt ~eq:String.equal file (C.read ()).mappings
+      *)
+      C.SMap.find_opt file (C.read ()).mappings
+      |> Option.get_or ~default:C.SMap.empty
+    in
     begin
-      match q with
-      | Pident i
-        when String.equal (Ident.name i) "Stdlib"
-             && List.mem ~eq:String.equal ident ["in_channel"] ->
+      match id with
+      (* Path.Pdot (Pident _i, _ident) *)
+      | _
+        when List.mem ~eq:String.equal (path_to_s id)
+               (C.read ()).treat_as_opaque
+             ||
+             match
+               (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
+               C.SMap.find_opt (path_to_s id) mappings
+             with
+             | Some Opaque -> true
+             | _ -> false
+             (* when String.equal (Ident.name i) "Stdlib" *)
+             (* && List.mem ~eq:String.equal ident ["in_channel"] *) ->
+        log "opaque %s" (path_to_s id);
         [%expr fun fmt _ -> Format.fprintf fmt "<opaque>"]
       | _ ->
+        (* we have to figure out where some type is defined from where it is used in order to point to the right printer. *)
+        let get_pp_name typ = match typ with "t" -> "pp" | _ -> "pp_" ^ typ in
+        (* log "mappings %a" (List.pp (Pair.pp String.pp String.pp)) mappings;
+           log "%b" (List.mem_assoc ~eq:String.equal (path_to_s id) mappings);
+           log "%s" (path_to_s id); *)
+        let qualifier, ident_name =
+          match id with
+          (* sometimes a type is qualified because it is defined in a module, but it is used in the same compilation unit. a heuristic to figure this out is to check if the qualifier is not a library entrypoint... *)
+          (* | Path.Pdot (q, ident)
+             when String.find ~sub:"__" (Format.asprintf "%a" Path.print q) = -1
+             ->
+             let qq =
+               Longident.unflatten
+                 (Longident.flatten qual @ Longident.flatten (path_to_lident q))
+               |> Option.get_exn_or "qualifiers cannot be concatenated"
+             in
+             (qq, ident) *)
+          (* rather than use fragile heuristics, take user input for how to access qualified types *)
+
+          (* Path.Pdot (q, ident) *)
+          | _
+            when (* List.mem_assoc ~eq:String.equal (path_to_s id) mappings *)
+                 C.SMap.mem (path_to_s id) mappings
+                 (* C.SMap.mem file (C.read ()).mappings *)
+                 (* && C.SMap.mem (path_to_s q)
+                      (C.SMap.find file (C.read ()).mappings) *) ->
+            (* print_endline (path_to_s q); *)
+            log "found mapping for %s" (path_to_s id);
+            let zz =
+              (* C.SMap.find (path_to_s q) (C.SMap.find file (C.read ()).mappings) *)
+              match
+                (* List.assoc ~eq:String.equal (path_to_s id) mappings *)
+                C.SMap.find (path_to_s id) mappings
+              with
+              | Rewrite s -> s
+              | _ -> failwith "invalid"
+            in
+            let li, ident =
+              let li =
+                Longident.unflatten (String.split_on_char '.' zz)
+                |> Option.get_exn_or "cannot parse longident"
+              in
+              match li with
+              | Longident.Ldot (li, ident) -> (li, ident)
+              | _ -> failwith "asd"
+            in
+            (li, ident)
+          (* if the type is used in a compilation unit other than where it is defined, this information is part of the type's name *)
+          | Path.Pdot (q, ident) ->
+            log "another comp unit %s" (path_to_s id);
+            (path_to_lident q, ident)
+          (* if it's unqualified, we assume it is used where it is defined *)
+          | Pident ident ->
+            log "unqualified %s" (path_to_s id);
+            (qual, Ident.name ident)
+          | Papply _ -> failwith "not applicable"
+        in
+        log "printer name: (%s, %a, %a) -> (%a, %s)" file Pprintast.longident
+          qual Path.print id Pprintast.longident qualifier ident_name;
         let f =
           A.pexp_ident ~loc
             {
               loc;
               txt =
                 Ldot
-                  ( path_to_lident q,
-                    match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
+                  ( qualifier (* path_to_lident q *),
+                    get_pp_name ident_name
+                    (* match ident_name with
+                       | "t" -> "pp"
+                       | _ ->
+                         "pp_"
+                         ^ (* ident *)
+                         ident_name *) );
             }
         in
         (match args with
         | [] -> f
         | _ :: _ ->
           let p_args =
-            List.map (create_pp_fn ~loc qual) args
+            List.map (create_pp_fn ~loc file qual) args
             |> List.map (fun a -> (Ppxlib.Nolabel, a))
           in
           A.pexp_apply ~loc f p_args)
     end
-  | Tconstr (Pident ident, args, _) ->
-    let f =
-      A.pexp_ident ~loc
-        {
-          loc;
-          txt =
-            Ldot
-              ( qual,
-                match Ident.name ident with
-                | "t" -> "pp"
-                | _ -> "pp_" ^ Ident.name ident );
-        }
-    in
-    (match args with
-    | [] -> f
-    | _ :: _ ->
-      let p_args =
-        List.map (create_pp_fn ~loc qual) args
-        |> List.map (fun a -> (Ppxlib.Nolabel, a))
-      in
-      A.pexp_apply ~loc f p_args)
+  (* begin
+       match q with
+       | Pident i
+         when String.equal (Ident.name i) "Stdlib"
+              && List.mem ~eq:String.equal ident ["in_channel"] ->
+         [%expr fun fmt _ -> Format.fprintf fmt "<opaque>"]
+       | _ ->
+         let f =
+           A.pexp_ident ~loc
+             {
+               loc;
+               txt =
+                 Ldot
+                   ( path_to_lident q,
+                     match ident with "t" -> "pp" | _ -> "pp_" ^ ident );
+             }
+         in
+         (match args with
+         | [] -> f
+         | _ :: _ ->
+           let p_args =
+             List.map (create_pp_fn ~loc qual) args
+             |> List.map (fun a -> (Ppxlib.Nolabel, a))
+           in
+           A.pexp_apply ~loc f p_args)
+     end *)
+  (* | Tconstr (Pident ident, args, _) ->
+     log "unqualified ident %s, qual = %a" (Ident.name ident) Pprintast.longident
+       qual;
+     let f =
+       A.pexp_ident ~loc
+         {
+           loc;
+           txt =
+             Ldot
+               (* assume that the type is defined where it is used *)
+               ( qual,
+                 match Ident.name ident with
+                 | "t" -> "pp"
+                 | _ -> "pp_" ^ Ident.name ident );
+         }
+     in
+     (match args with
+     | [] -> f
+     | _ :: _ ->
+       let p_args =
+         List.map (create_pp_fn ~loc qual) args
+         |> List.map (fun a -> (Ppxlib.Nolabel, a))
+       in
+       A.pexp_apply ~loc f p_args) *)
   | Tvar _ -> [%expr fun fmt _ -> Format.fprintf fmt "<poly>"]
   | Tarrow _ -> [%expr fun fmt _ -> Format.fprintf fmt "<fn>"]
   | Ttuple _ ->
@@ -287,7 +422,7 @@ let handle_expr modname it expr =
       | [] -> failwith "modname cannot be empty"
       | m :: ms -> List.fold_left Ppxlib.(fun t c -> Ldot (t, c)) (Lident m) ms
     in
-    let pp_fn = create_pp_fn ~loc qual exp_type in
+    let pp_fn = create_pp_fn ~loc site_id.file qual exp_type in
     let typ = create_typ_name ~loc qual exp_type in
     (* begin
        match typ with
@@ -295,6 +430,9 @@ let handle_expr modname it expr =
     let () =
       log "%s %d -> %a | %a" site_id.file site_id.id Printtyp.type_expr exp_type
         Ppxlib.Pprintast.expression pp_fn
+      (* | %a *)
+      (* (Option.pp Ppxlib.Pprintast.core_type) *)
+      (* typ *)
     in
     id_type_mappings := (site_id, { pp_fn; typ }) :: !id_type_mappings
     (* | None -> ()

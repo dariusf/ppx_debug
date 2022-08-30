@@ -127,6 +127,8 @@ let read ~read_and_print_value filename =
   let file = Scanf.Scanning.open_in_bin filename in
   let rec loop all =
     let typ = Scanf.bscanf file "%s@\n" (fun typ -> typ) in
+    print_endline typ;
+    print_endline (string_of_int (String.length typ));
     match typ with
     | "start" ->
       let id = Id.deserialize file in
