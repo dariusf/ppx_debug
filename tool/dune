@@ -1,0 +1,11 @@
+
+(executable
+ (name tool)
+ (libraries ppx_debug ppx_debug_runtime)
+ (preprocessor_deps (source_tree ../ppx_debug) (source_tree ../ppx_debug_runtime))
+ (preprocess (pps ppx_debug_tool1)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

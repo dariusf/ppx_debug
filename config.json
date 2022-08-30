@@ -1,0 +1,67 @@
+{
+  "enabled": true,
+  "mode": ["All", []],
+  "file": "debug.trace",
+  "ppx_logging": true,
+  "internal_log": "/tmp/ppx_debug.txt",
+  "internal_tool_log": "/tmp/ppx_debug_tool.txt",
+  "lambdas": true,
+  "matches": true,
+  "variant": ["Stdlib"],
+  "mappings": {
+    "ppx_debug_runtime/trace.ml": {
+      "Id.t": ["Rewrite", "Ppx_debug_runtime.Trace.Id.t"],
+      "t": ["Opaque"]
+    },
+    "ppx_debug/ppx_debug.ml": {
+      "C.t": ["Opaque"],
+      "C.mode": ["Opaque"],
+      "param": ["Opaque"],
+      "func": ["Opaque"]
+    },
+    "ppx_debug_runtime/config.ml": {
+      "key": ["Opaque"],
+      "t": ["Opaque"],
+      "mode": ["Opaque"],
+      "variant": ["Opaque"],
+      "SMap.t": ["Opaque"],
+      "SMap.M.t": ["Opaque"],
+      "M.t": ["Opaque"]
+    }
+  },
+  "treat_as_opaque": [
+    "Astlib__.Ast_412.Parsetree.expression",
+    "Astlib__.Ast_412.Parsetree.structure",
+    "Astlib__.Ast_412.Parsetree.structure_item",
+    "Astlib__.Ast_412.Parsetree.pattern",
+    "Astlib__.Ast_412.Parsetree.core_type",
+    "Stdlib.format4",
+    "Ppxlib.pattern_desc",
+    "Ppxlib.pattern",
+    "Ppxlib.attribute",
+    "Ppxlib.longident",
+    "Ppxlib_ast__Ast_helper_lite.loc",
+    "Ppxlib.core_type_desc",
+    "Astlib.Ast_412.Parsetree.expression",
+    "Ppxlib__.Import.Ast.expression",
+    "Ppxlib__.Import.Ast.structure_item",
+    "Ppxlib.value_binding",
+    "Ppxlib.expression",
+    "Ppxlib.location",
+    "Ppxlib.core_type",
+    "Ppxlib_ast__Ast_helper_lite.pp_loc",
+    "Ppxlib__.Import.expression",
+    "Ppxlib.expression_desc",
+    "Ppxlib.structure_item",
+    "Ppxlib.case",
+    "Ppxlib.rec_flag",
+    "Astlib.Ast_412.Parsetree.structure_item",
+    "Ppx_deriving_yojson_runtime.error_or",
+    "Ppx_deriving_yojson_runtime.Result.result",
+    "Stdlib.Scanf.Scanning.file_name",
+    "Stdlib.Scanf.Scanning.in_channel",
+    "Stdlib.in_channel",
+    "Stdlib.out_channel",
+    "Stdlib.String.t"
+  ]
+}
