@@ -59,3 +59,12 @@ https://github.com/chetmurthy/typpx
 https://github.com/krohrer/caml-inspect
 https://github.com/ocaml-batteries-team/batteries-included/blob/master/src/batPervasives.ml
 -->
+
+# Bootstrapping
+
+Running ppx_debug on itself is possible but rather involved:
+
+- Clone the main repo locally. Apply the patch in branch `bootstrap1` to rename the ppx (appending 1 to the end of all conflicting names, as programmers do).
+- Symlink the clone into the main repo under `debug1`.
+- Development in the main repo happens on the `bootstrap` branch, which is ahead of its `master` in two ways. First is a patch for enabling bootstrapping (enabling the ppx on itself). Next are local changes.
+- To test a change, make a commit on (`bootstrap`, then cherry pick it onto) `master`, then rebase `bootstrap` onto master. Have the clone pull changes from `master`, which will rebase its patch. Run tests.
