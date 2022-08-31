@@ -171,12 +171,17 @@ let rec create_pp_fn ~loc file qual exp_type =
       C.SMap.find_opt file (C.read ()).mappings
       |> Option.get_or ~default:C.SMap.empty
     in
+    let opaque_regexes = (C.read ()).treat_as_opaque |> List.map Str.regexp in
     begin
       match id with
       (* Path.Pdot (Pident _i, _ident) *)
       | _
-        when List.mem ~eq:String.equal (path_to_s id)
-               (C.read ()).treat_as_opaque
+        when (* List.mem ~eq:String.equal (path_to_s id) (C.read ()).treat_as_opaque *)
+             (* List.mem ~eq:String.equal (path_to_s id)
+                (C.read ()).treat_as_opaque *)
+             List.exists
+               (fun r -> Str.string_match r (path_to_s id) 0)
+               opaque_regexes
              ||
              match
                (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
