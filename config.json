@@ -11,7 +11,8 @@
   "mappings": {
     "ppx_debug_runtime/trace.ml": {
       "Id.t": ["Rewrite", "Ppx_debug_runtime.Trace.Id.t"],
-      "t": ["Opaque"]
+      "t": ["Opaque"],
+      "call": ["Opaque"]
     },
     "ppx_debug/ppx_debug.ml": {
       "C.t": ["Opaque"],
@@ -27,6 +28,13 @@
       "SMap.t": ["Opaque"],
       "SMap.M.t": ["Opaque"],
       "M.t": ["Opaque"]
+    },
+    "ppx_debug_runtime/viewer.ml": {
+      "Tree.t": ["Opaque"],
+      "Tree.path": ["Opaque"],
+      "Tree.pos": ["Opaque"],
+      "t": ["Opaque"],
+      "pos": ["Opaque"]
     }
   },
   "treat_as_opaque": [
@@ -62,6 +70,11 @@
     "Stdlib.Scanf.Scanning.in_channel",
     "Stdlib.in_channel",
     "Stdlib.out_channel",
-    "Stdlib.String.t"
+    "Stdlib.String.t",
+    "Ppx_deriving_runtime.string",
+    "Ppx_deriving_runtime.unit",
+    "Ppxlib__.Import.location",
+    "Ppx_debug_runtime__.Trace.call",
+    "Ocaml_common..*"
   ]
 }
