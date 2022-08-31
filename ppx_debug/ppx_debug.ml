@@ -3,15 +3,23 @@ open Containers
 open Ppxlib
 
 (* logging the low-tech way *)
-let logfile =
-  (* IO.File.remove_noerr filename; *)
-  IO.File.make (C.read ()).internal_log
+(* IO.File.remove_noerr filename; *)
+
 (* IO.File.make (Sys.getcwd () ^ "/ppx_debug.txt") *)
 
+let logfile = ref None
+
 let log fmt =
+  let lf =
+    match !logfile with
+    | None ->
+      let l = IO.File.make (C.read ()).internal_log in
+      logfile := Some l;
+      l
+    | Some l -> l
+  in
   Format.kasprintf
-    (fun s ->
-      if (C.read ()).ppx_logging then IO.File.append_exn logfile (s ^ "\n"))
+    (fun s -> if (C.read ()).ppx_logging then IO.File.append_exn lf (s ^ "\n"))
     fmt
 
 let p_si si = Format.printf "structure_item %a@." Pprintast.structure_item si
@@ -33,7 +41,16 @@ let fresh =
   fun () ->
     let r = !n in
     incr n;
-    Format.sprintf "v%d" r
+    r
+
+let fresh_v () = Format.sprintf "v%d" (fresh ())
+
+(* let ids = ref 0
+
+   let fresh () =
+     let r = !ids in
+     incr ids;
+     r *)
 
 type label = arg_label * expression option
 
@@ -86,7 +103,7 @@ let normalize_fn f : func =
         | Ppat_construct ({ txt = Lident "()"; _ }, None) ->
           { func with params = Unit { label } :: func.params }
         | Ppat_any ->
-          let param = { txt = fresh (); loc } in
+          let param = { txt = fresh_v (); loc } in
           { func with params = Param { param; label } :: func.params }
         | _ -> { body = f; params = []; name; loc }
       end
@@ -258,13 +275,6 @@ let interpret_type t =
     (* List.sub.arrow_to_list t *)
     let a, b = List.take_drop (l - 1) a in
     (a, List.hd b)
-
-let ids = ref 0
-
-let fresh () =
-  let r = !ids in
-  incr ids;
-  r
 
 (* for now, we get ppx_debug_file by reading the environment, but removing that allows users to configure it through changing source *)
 let generate_value ~loc cu v =
