@@ -31,3 +31,9 @@
  (version 0.1)
  (synopsis "A ppx for debugging")
  (description "Debug away"))
+
+(package
+ (name ppx_debug_common)
+ (version 0.1)
+ (synopsis "A ppx for debugging")
+ (description "Debug away"))

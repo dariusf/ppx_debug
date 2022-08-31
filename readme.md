@@ -71,4 +71,13 @@ Running ppx_debug on itself is possible but rather involved:
 
 # FAQ
 
-- Unbound module during compilation, after tool ppx has run, with puzzling line number: our heuristics are probably not good enough to figure out how to access a type from outside its use site. Manually configure how to access the type from outside the library.
+**Unbound module during compilation, after tool ppx has run, with puzzling line number?**
+
+Our heuristics are probably not good enough to figure out how to access a type from outside its use site. Manually configure how to access the type from outside the library.
+
+**Why all the modules?**
+
+- runtime, like in ppx_deriving, is required at runtime. It thus should contain minimal dependencies.
+- common depends on runtime mostly for convenience, and also because at compilation time we're not as concerned with minimising dependencies. It contains side-effect-free ppx code which can be instrumented when bootstrapping.
+- The two ppx packages depend on common.
+- tool is the second entrypoint when bootstrapping.

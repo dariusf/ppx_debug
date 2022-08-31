@@ -3,10 +3,10 @@
  (kind ppx_rewriter)
  ; some code (config) is used at both compile- and runtime.
  ; the runtime library will always be available anyway.
- (libraries ppx_debug_runtime ppxlib containers)
+ (libraries ppx_debug_runtime ppx_debug_common ppxlib containers)
  (inline_tests)
  (preprocess
-  (pps ppx_deriving.show ppx_expect ppxlib.metaquot)))
+  (pps ppx_deriving.show ppx_expect)))
 
 (env
  (dev

@@ -1,0 +1,11 @@
+(library
+ (name ppx_debug_common)
+ (public_name ppx_debug_common)
+ (libraries ppxlib containers ppx_debug_runtime)
+ (inline_tests)
+ (preprocess (pps ppxlib.metaquot ppx_deriving.show ppx_deriving_yojson ppx_expect)))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

@@ -1,7 +1,7 @@
 (library
  (public_name ppx_debug_tool)
  (kind ppx_rewriter)
- (libraries ppxlib ppx_debug_runtime containers)
+ (libraries ppxlib ppx_debug_runtime ppx_debug_common containers)
  (inline_tests)
  (preprocess
   (pps ppx_deriving.show ppx_expect ppxlib.metaquot)))
