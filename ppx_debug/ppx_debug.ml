@@ -1,7 +1,7 @@
 open Ppxlib
 module Config = Ppx_debug_runtime.Config
 
-let log = Ppx_debug_common.Log.log
+let log = Ppx_debug_common.Instrument.log
 
 let () =
   let config = Config.read () in

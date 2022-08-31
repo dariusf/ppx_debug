@@ -1,14 +1,11 @@
 open Containers
 module Config = Ppx_debug_runtime.Config
 
-(* logging the low-tech way *)
-let logfile = IO.File.make (Config.read ()).internal_tool_log
+module L = Log.Make (struct
+  let name = (Config.read ()).internal_tool_log
+end)
 
-let log fmt =
-  Format.kasprintf
-    (fun s ->
-      if (Config.read ()).ppx_logging then IO.File.append_exn logfile (s ^ "\n"))
-    fmt
+let log = L.log
 
 (* we're not in ppxlib, because we're accessing the typedtree, which likely is out of scope.
    we probably aren't protected against breakage as well. *)

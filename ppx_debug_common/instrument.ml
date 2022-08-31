@@ -2,7 +2,11 @@ open Containers
 open Ppxlib
 module Config = Ppx_debug_runtime.Config
 
-let log = Log.log
+module L = Log.Make (struct
+  let name = (Config.read ()).internal_log
+end)
+
+let log = L.log
 let p_si si = Format.printf "structure_item %a@." Pprintast.structure_item si
 let p_s s = Format.printf "structure %a@." Pprintast.structure s
 let p_e e = Format.printf "expression %a@." Pprintast.expression e
