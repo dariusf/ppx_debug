@@ -81,7 +81,8 @@ type t = {
   (* control which functions/modules to log *)
   mode : mode;
   (* the file the raw trace should be written to *)
-  file : string;
+  file1 : string;
+  randomize_filename : bool;
   (* whether to enable debug logging in the ppx, and the locations of those logs *)
   ppx_logging : bool;
   internal_log : string;
@@ -103,11 +104,17 @@ type t = {
 }
 [@@deriving yojson]
 
+let get_file d =
+  if d.randomize_filename then
+    Format.asprintf "/tmp/%d_%s" (int_of_float (Unix.gettimeofday ())) d.file1
+  else d.file1
+
 let default =
   {
     enabled = true;
     mode = All [];
-    file = "debug.trace";
+    file1 = "debug.trace";
+    randomize_filename = false;
     ppx_logging = true;
     internal_log = "/tmp/ppx_debug.txt";
     internal_tool_log = "/tmp/ppx_debug_tool.txt";
@@ -184,41 +191,39 @@ let default =
            ]; *);
   }
 
-(* mode=All,f,g+blah=a,b,c *)
-let parse s =
-  let kvps = s |> String.split_on_char '+' in
-  List.fold_right
-    (fun c t ->
-      match c |> String.trim |> String.split_on_char '=' with
-      | ["enabled"; "true"] -> { t with enabled = true }
-      | ["enabled"; "false"] -> { t with enabled = false }
-      | ["lambdas"; "true"] -> { t with lambdas = true }
-      | ["lambdas"; "false"] -> { t with lambdas = false }
-      | ["matches"; "true"] -> { t with matches = true }
-      | ["matches"; "false"] -> { t with matches = false }
-      | ["file"; f] -> { t with file = f }
-      | ["log"; "true"] -> { t with ppx_logging = true }
-      | ["log"; "false"] -> { t with ppx_logging = false }
-      | ["variant"; "containers"] -> { t with variant = Containers }
-      | ["variant"; "stdlib"] -> { t with variant = Stdlib }
-      | ["mode"; v] ->
-        begin
-          match String.split_on_char ',' v with
-          | "All" :: blacklist -> { t with mode = All blacklist }
-          | "Some" :: whitelist -> { t with mode = Some whitelist }
-          | "Modules" :: whitelist -> { t with mode = Modules whitelist }
-          | m -> failwith ("unable to parse mode " ^ String.concat "," m)
-        end
-      | _ -> failwith ("unable to parse config: " ^ s))
-    kvps default
+(* mode=All,f,g+blah=a,b,c
+   let parse s =
+     let kvps = s |> String.split_on_char '+' in
+     List.fold_right
+       (fun c t ->
+         match c |> String.trim |> String.split_on_char '=' with
+         | ["enabled"; "true"] -> { t with enabled = true }
+         | ["enabled"; "false"] -> { t with enabled = false }
+         | ["lambdas"; "true"] -> { t with lambdas = true }
+         | ["lambdas"; "false"] -> { t with lambdas = false }
+         | ["matches"; "true"] -> { t with matches = true }
+         | ["matches"; "false"] -> { t with matches = false }
+         | ["file"; f] -> { t with file = f }
+         | ["log"; "true"] -> { t with ppx_logging = true }
+         | ["log"; "false"] -> { t with ppx_logging = false }
+         | ["variant"; "containers"] -> { t with variant = Containers }
+         | ["variant"; "stdlib"] -> { t with variant = Stdlib }
+         | ["mode"; v] ->
+           begin
+             match String.split_on_char ',' v with
+             | "All" :: blacklist -> { t with mode = All blacklist }
+             | "Some" :: whitelist -> { t with mode = Some whitelist }
+             | "Modules" :: whitelist -> { t with mode = Modules whitelist }
+             | m -> failwith ("unable to parse mode " ^ String.concat "," m)
+           end
+         | _ -> failwith ("unable to parse config: " ^ s))
+       kvps default *)
 
 let parse s =
   let x = s |> Yojson.Safe.from_string |> of_yojson in
   match x with
   | Ok y -> y
-  | Error s ->
-    print_endline s;
-    failwith s
+  | Error _ -> failwith (Format.asprintf "failed to parse config")
 (* Result.get_ok x *)
 
 (* memoize because this may be called many times and environment variables don't change *)

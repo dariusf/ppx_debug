@@ -264,9 +264,7 @@ let interpret_type t =
 (* for now, we get ppx_debug_file by reading the environment, but removing that allows users to configure it through changing source *)
 let generate_value ~loc cu v =
   [%expr
-    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
-      Ppx_debug_runtime.Config.read ()
-    in
+    let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
       ~ppx_debug_id:
         {
@@ -279,9 +277,7 @@ let generate_value ~loc cu v =
 
 let generate_match ~loc cu name v =
   [%expr
-    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
-      Ppx_debug_runtime.Config.read ()
-    in
+    let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
       ~ppx_debug_id:
         {
@@ -293,9 +289,7 @@ let generate_match ~loc cu name v =
 
 let generate_arg ~loc cu arg =
   [%expr
-    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
-      Ppx_debug_runtime.Config.read ()
-    in
+    let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
       ~ppx_debug_id:
         {
@@ -308,9 +302,7 @@ let generate_arg ~loc cu arg =
 
 let generate_start ~loc cu what =
   [%expr
-    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
-      Ppx_debug_runtime.Config.read ()
-    in
+    let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
     Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
       ~ppx_debug_id:
         {
@@ -322,9 +314,7 @@ let generate_start ~loc cu what =
 
 let generate_end ~loc cu what =
   [%expr
-    let Ppx_debug_runtime.Config.{ file = ppx_debug_file; _ } =
-      Ppx_debug_runtime.Config.read ()
-    in
+    let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
       ~ppx_debug_id:
         {
