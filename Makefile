@@ -8,7 +8,7 @@ all:
 	rm debug.trace > /dev/null 2>&1 || true
 	rm chrome.json > /dev/null 2>&1 || true
 	dune exec --display=short ./demo/app/app.exe
-	dune exec --display=short ./demo/debug/debug.exe > chrome.json
+	dune exec --display=short ./demo/debug/debug.exe debug.trace > chrome.json
 
 .PHONY: w
 w:
