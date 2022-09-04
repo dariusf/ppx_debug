@@ -5,10 +5,11 @@ export OCAMLRUNPARAM=b
 all:
 	dune test --display=short
 	rm /tmp/ppx_debug.txt > /dev/null 2>&1 || true
-	rm debug.trace > /dev/null 2>&1 || true
-	rm chrome.json > /dev/null 2>&1 || true
+	rm chrome.json debugger.json debug.trace > /dev/null 2>&1 || true
 	dune exec --display=short ./demo/app/app.exe
 	dune exec --display=short ./demo/debug/debug.exe debug.trace > chrome.json
+	dune exec --display=short ./demo/debug/debug.exe -- debug.trace -f debugger > debugger.json
+	ls chrome.json debugger.json debug.trace
 
 .PHONY: w
 w:

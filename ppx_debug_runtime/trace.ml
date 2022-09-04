@@ -161,32 +161,44 @@ let read ~read_and_print_value filename =
   Scanf.Scanning.close_in file;
   res
 
-let to_tree ?(toplevel = "top level") ~leaf ~node trace =
+let top_level_node = "top level"
+
+(** converts a linear trace with start/end spans and point events into a call tree, numbering nodes chronologically *)
+let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
+  let fresh =
+    let i = ref 0 in
+    fun () ->
+      let r = !i in
+      incr i;
+      r
+  in
   let rec build_tree trace =
     match trace with
-    | FrameStart { func; id; _ } :: es ->
-      let trace, args, trees = look_for_end es [] [] in
-      (node func id args trees, trace)
+    | FrameStart { func; id; time = start_time; _ } :: es ->
+      (* reserve an id first *)
+      let i = fresh () in
+      let trace, args, trees, end_time = look_for_end es [] [] in
+      (node i func id args trees start_time end_time, trace)
     | _ :: _ -> failwith "expected FrameStart"
     | [] -> failwith "empty trace"
-  and look_for_end
-      (* event list -> int list -> call list -> event list * int list * call list = *)
-        trace args res =
+  and look_for_end trace args res =
     match trace with
     | e :: es ->
       begin
         match e with
-        | FrameEnd _ -> (es, List.rev args, List.rev res)
+        | FrameEnd { time; _ } -> (es, List.rev args, List.rev res, time)
         | FrameStart _ ->
           (* note that we recurse on trace, not es *)
           let tree, trace = build_tree (e :: es) in
           look_for_end trace args (tree :: res)
-        | Match { id; content; name; _ } | Value { id; content; name; _ } ->
-          look_for_end es args (leaf e id name content :: res)
+        | Match { id; content; name; time } | Value { id; content; name; time }
+          ->
+          look_for_end es args (leaf (fresh ()) e id name content time :: res)
         | Argument { content; name; _ } ->
           look_for_end es ((name, content) :: args) res
       end
-    | [] -> ([], List.rev args, List.rev res)
+    | [] -> failwith "start without end"
+    (* ([], List.rev args, List.rev res) *)
   in
   (* build_tree returns the collected trees and the remaining trace, so we have to iterate it *)
   let rec collect_trees trace =
@@ -196,27 +208,38 @@ let to_tree ?(toplevel = "top level") ~leaf ~node trace =
       let tree, trace = build_tree trace in
       tree :: collect_trees trace
   in
-  node toplevel Id.dummy [] (collect_trees trace)
+  (* reserve id first, so nodes chronologically earlier in the call tree get smaller ids *)
+  let i = fresh () in
+  (* most of the values of the top level node are dummy, including start and end time *)
+  node i toplevel Id.dummy [] (collect_trees trace) 0 0
 
 (* a tree representation of traces that makes many operations easier *)
 type call =
   | Event of {
+      i : int;
       name : string;
       content : string;
+      time : int;
       id : Id.t;
     }
   | Call of {
+      i : int;
       name : string;
       args : (string * string) list;
       calls : call list;
+      start_time : int;
+      end_time : int;
       id : Id.t;
     }
-[@@deriving yojson]
+(* will blow up when printed due to the same subtrees appearing multiple times *)
+(* [@@deriving yojson] *)
 
 let to_call_tree trace =
   to_tree
-    ~node:(fun f id args trees -> Call { name = f; calls = trees; args; id })
-    ~leaf:(fun _e id name content -> Event { name; content; id })
+    ~node:(fun i f id args trees start_time end_time ->
+      Call { i; name = f; calls = trees; args; id; start_time; end_time })
+    ~leaf:(fun i _e id name content time ->
+      Event { i; name; content; id; time })
     trace
 
 let group_sorted f xs =
@@ -250,8 +273,8 @@ let group_by ~key ~value ~group xs =
          group k vs)
 
 (**
-  Walks the call tree as if it were being stepped through (preorder, depth-first),
-  numbering each node and computing a few relations between nodes.
+  Walks the call tree as if it were being stepped through (depth-first, preorder, left-to-right),
+  computing a few relations between nodes.
 
   Many relations are inverses (next/back, out/in, next_sibling/prev_sibling).
   Not all are useful, e.g. next subsumes in and would probably be used to implement a debugger's "step in" command.
@@ -260,16 +283,9 @@ let group_by ~key ~value ~group xs =
   Outputs JSON. Could be used for the zipper viewer but we would have to separate the JSON encoding phase.
 *)
 let preprocess_for_debugging tree : Yojson.Safe.t =
-  let fresh =
-    let i = ref 0 in
-    fun () ->
-      let r = !i in
-      incr i;
-      r
-  in
   let rec loop prev lineage nodes edges breakpoints t =
-    (* this node id *)
-    let nid = fresh () in
+    (* this node's id *)
+    let nid = match t with Event { i; _ } -> i | Call { i; _ } -> i in
     (* compute all the relations *)
     let step_out, step_in =
       match lineage with
@@ -292,7 +308,7 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
     let new_edges = step_in @ step_back @ step_out @ step_next in
     (* decide what to present for each kind of node *)
     match t with
-    | Event { id; name; content } ->
+    | Event { id; name; content; _ } ->
       let breakpoints = (id.line, nid) :: breakpoints in
       let this =
         `Assoc
@@ -301,9 +317,10 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
             ("name", `String name);
             ("content", `String content);
           ]
+        (* DEvent { id; name; content; i = nid } *)
       in
       (nid, nid, (nid, this) :: nodes, new_edges @ edges, breakpoints)
-    | Call { id; name; calls; args } ->
+    | Call { id; name; calls; args; _ } ->
       let breakpoints = (id.line, nid) :: breakpoints in
       let this =
         `Assoc
@@ -312,6 +329,7 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
             ("name", `String name);
             ("args", `Assoc (List.map (fun (k, v) -> (k, `String v)) args));
           ]
+        (* DCall { id; name; args; i = nid } *)
       in
       let nodes, edges = ((nid, this) :: nodes, new_edges @ edges) in
       (* extend lineage once for all children *)
@@ -379,28 +397,37 @@ let%expect_test _ =
   let tree =
     Call
       {
-        (* 0 *)
+        i = 0;
         name = "f";
         id = Id.dummy;
         args = [];
+        start_time = 0;
+        end_time = 7;
         calls =
           [
-            Event { (* 1 *)
-                    name = "a"; content = "x"; id = Id.dummy };
-            Event { (* 2 *)
-                    name = "b"; content = "y"; id = Id.dummy };
+            Event { i = 1; name = "a"; content = "x"; id = Id.dummy; time = 1 };
+            Event { i = 2; name = "b"; content = "y"; id = Id.dummy; time = 2 };
             Call
               {
-                (* 3 *)
+                i = 3;
                 name = "g";
                 id = Id.dummy;
                 args = [];
+                start_time = 3;
+                end_time = 5;
                 calls =
-                  [Event { (* 4 *)
-                           name = "c"; content = "z"; id = Id.dummy }];
+                  [
+                    Event
+                      {
+                        i = 4;
+                        name = "c";
+                        content = "z";
+                        id = Id.dummy;
+                        time = 4;
+                      };
+                  ];
               };
-            Event { (* 5 *)
-                    name = "d"; content = "w"; id = Id.dummy };
+            Event { i = 5; name = "d"; content = "w"; id = Id.dummy; time = 6 };
           ];
       }
   in

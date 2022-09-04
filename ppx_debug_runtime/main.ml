@@ -59,8 +59,8 @@ let linearize tree =
 
 let main_old ~read_and_print_value file =
   let trace = Trace.read ~read_and_print_value file in
-  if Array.length Sys.argv < 2 then
-    Chrome_trace.trace_to_chrome trace |> print_endline
+  if Array.length Sys.argv < 2 then print_endline "chrome"
+    (* Chrome_trace.trace_to_chrome trace |> print_endline *)
   else
     match Sys.argv.(1) with
     | "tree" ->
@@ -76,8 +76,9 @@ let main_old ~read_and_print_value file =
       print_endline (print_call name trace)
     | "raw" ->
       (* the raw data in the trace *)
-      let tree = Trace.to_call_tree trace in
-      print_endline (Yojson.Safe.to_string (Trace.call_to_yojson tree))
+      (* let tree = Trace.to_call_tree trace in *)
+      (* print_endline (Yojson.Safe.to_string (Trace.call_to_yojson tree)) *)
+      failwith "incurs exponential blowup"
     | "linear" ->
       (* probably useless *)
       let tree = Trace.to_call_tree trace in
@@ -119,7 +120,10 @@ let act_on fmt trace =
     let tree = Trace.to_call_tree trace in
     let json = Trace.preprocess_for_debugging tree in
     print_endline (Yojson.Safe.to_string json)
-  | Some Chrome | None -> Chrome_trace.trace_to_chrome trace |> print_endline
+  | Some Chrome | None ->
+    let tree = Trace.to_call_tree trace in
+    Chrome_trace.call_tree_to_chrome tree |> fun e ->
+    `List e |> Yojson.Safe.to_string |> print_endline
 
 let main ~read_and_print_value () =
   parse_args ();
