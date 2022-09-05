@@ -75,7 +75,7 @@ let create_typ_name ~loc _qual exp_type =
 (* pp because show is non-compositional.
    file and qual are for the current compilation unit, i.e. where exp_type is used.
 *)
-let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
+let rec create_pp_fn ~loc file qual exp_type =
   let variant = (C.read ()).variant in
   let handle_result a b =
     (* can't use this as it specializes the second arg to string *)
@@ -86,8 +86,8 @@ let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
     Ppxlib.(
       [%expr
         Format.pp_print_result
-          ~ok:[%e create_pp_fn ~loc file qual env a]
-          ~error:[%e create_pp_fn ~loc file qual env b]])
+          ~ok:[%e create_pp_fn ~loc file qual a]
+          ~error:[%e create_pp_fn ~loc file qual b]])
     (* ) *)
   in
   match Types.get_desc exp_type with
@@ -117,9 +117,9 @@ let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
   | Tconstr (Pident ident, [a], _) when String.equal (Ident.name ident) "option"
     ->
     (match variant with
-    | Containers -> [%expr CCOpt.pp [%e create_pp_fn ~loc file qual env a]]
+    | Containers -> [%expr CCOpt.pp [%e create_pp_fn ~loc file qual a]]
     | Stdlib ->
-      [%expr Format.pp_print_option [%e create_pp_fn ~loc file qual env a]])
+      [%expr Format.pp_print_option [%e create_pp_fn ~loc file qual a]])
   | Tconstr (Pident ident, [a; b], _)
     when String.equal (Ident.name ident) "result" ->
     handle_result a b
@@ -135,14 +135,14 @@ let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
           ~pp_start:(fun fmt () -> Format.fprintf fmt "[")
           ~pp_stop:(fun fmt () -> Format.fprintf fmt "]")
           ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
-          [%e create_pp_fn ~loc file qual env a]]
+          [%e create_pp_fn ~loc file qual a]]
     | Stdlib ->
       [%expr
         fun fmt xs ->
           Format.fprintf fmt "[";
           Format.pp_print_list
             ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@ ")
-            [%e create_pp_fn ~loc file qual env a]
+            [%e create_pp_fn ~loc file qual a]
             fmt xs;
           Format.fprintf fmt "]"])
   | Tconstr (Pident ident, [], _) when String.equal (Ident.name ident) "unit" ->
@@ -172,19 +172,6 @@ let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
       |> Option.get_or ~default:C.SMap.empty
     in
     let opaque_regexes = (C.read ()).treat_as_opaque |> List.map Str.regexp in
-    begin
-      try
-        (* log "helo %b" (Env.bound_type id env); *)
-        (* log "helo" (Env.summary env); *)
-        log "helo %s"
-          (Env.diff env Env.empty
-          |> List.map (fun i -> Format.asprintf "id %a" Ident.print i)
-          |> String.concat ",");
-        let decl = Env.find_type id env in
-        let def_file = decl.type_loc.loc_start.pos_fname in
-        log "%s in file %s" (path_to_s id) def_file
-      with _ -> log "error finding type %s" (path_to_s id)
-    end;
     begin
       match id with
       (* Path.Pdot (Pident _i, _ident) *)
@@ -286,7 +273,7 @@ let rec create_pp_fn ~loc file qual (env : Env.t) exp_type =
         | [] -> f
         | _ :: _ ->
           let p_args =
-            List.map (create_pp_fn ~loc file qual env) args
+            List.map (create_pp_fn ~loc file qual) args
             |> List.map (fun a -> (Ppxlib.Nolabel, a))
           in
           A.pexp_apply ~loc f p_args)
@@ -420,14 +407,14 @@ let handle_expr modname it expr =
       |> List.head_opt
       |> Option.get_exn_or "no ppx_debug_id argument"
     in
-    let printed_expr, exp_type =
+    let exp_type =
       let e =
         args |> List.last_opt
         |> Option.get_exn_or "no arguments?"
         |> snd
         |> Option.get_exn_or "last argument had no value"
       in
-      (e, e.exp_type)
+      e.exp_type
     in
     (* undo the mangling dune does to get a path we can refer to values with *)
     let demangle mn = String.split ~by:"__" mn in
@@ -437,10 +424,7 @@ let handle_expr modname it expr =
       | [] -> failwith "modname cannot be empty"
       | m :: ms -> List.fold_left Ppxlib.(fun t c -> Ldot (t, c)) (Lident m) ms
     in
-    let pp_fn =
-      create_pp_fn ~loc site_id.file qual printed_expr.Typedtree.exp_env
-        exp_type
-    in
+    let pp_fn = create_pp_fn ~loc site_id.file qual exp_type in
     let typ = create_typ_name ~loc qual exp_type in
     (* begin
        match typ with
@@ -483,10 +467,6 @@ let walk_build_dir () =
        | `File, s when String.ends_with ~suffix:"cmt" s && should_ignore s ->
          (* print_endline s; *)
          let cmt = Cmt_format.read_cmt s in
-         log "initial env %s"
-           (Env.diff cmt.cmt_initial_env Env.empty
-           |> List.map (fun i -> Format.asprintf "id %a" Ident.print i)
-           |> String.concat ", ");
          (* TODO does this do anything? *)
          let modname = cmt.cmt_modname |> String.split ~by:"." in
          (* let () =
