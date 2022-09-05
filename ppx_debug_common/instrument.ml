@@ -270,7 +270,14 @@ let generate_value ~loc cu v =
         {
           file = [%e A.estring ~loc cu];
           id = [%e A.eint ~loc (fresh ())];
-          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+          loc =
+            ( ( [%e A.eint ~loc loc.loc_start.pos_lnum],
+                [%e
+                  A.eint ~loc (loc.loc_start.pos_cnum - loc.loc_start.pos_bol)]
+              ),
+              ( [%e A.eint ~loc loc.loc_end.pos_lnum],
+                [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
+            );
         }
       [%e A.estring ~loc v]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
@@ -283,7 +290,14 @@ let generate_match ~loc cu name v =
         {
           file = [%e A.estring ~loc cu];
           id = [%e A.eint ~loc (fresh ())];
-          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+          loc =
+            ( ( [%e A.eint ~loc loc.loc_start.pos_lnum],
+                [%e
+                  A.eint ~loc (loc.loc_start.pos_cnum - loc.loc_start.pos_bol)]
+              ),
+              ( [%e A.eint ~loc loc.loc_end.pos_lnum],
+                [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
+            );
         }
       [%e A.estring ~loc name] [%e v]]
 
@@ -295,7 +309,14 @@ let generate_arg ~loc cu arg =
         {
           file = [%e A.estring ~loc cu];
           id = [%e A.eint ~loc (fresh ())];
-          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+          loc =
+            ( ( [%e A.eint ~loc loc.loc_start.pos_lnum],
+                [%e
+                  A.eint ~loc (loc.loc_start.pos_cnum - loc.loc_start.pos_bol)]
+              ),
+              ( [%e A.eint ~loc loc.loc_end.pos_lnum],
+                [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
+            );
         }
       [%e A.estring ~loc arg]
       [%e A.pexp_ident ~loc { loc; txt = Lident arg }]]
@@ -308,7 +329,14 @@ let generate_start ~loc cu what =
         {
           file = [%e A.estring ~loc cu];
           id = [%e A.eint ~loc (fresh ())];
-          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+          loc =
+            ( ( [%e A.eint ~loc loc.loc_start.pos_lnum],
+                [%e
+                  A.eint ~loc (loc.loc_start.pos_cnum - loc.loc_start.pos_bol)]
+              ),
+              ( [%e A.eint ~loc loc.loc_end.pos_lnum],
+                [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
+            );
         }
       ~func:[%e A.estring ~loc what]]
 
@@ -320,7 +348,14 @@ let generate_end ~loc cu what =
         {
           file = [%e A.estring ~loc cu];
           id = [%e A.eint ~loc (fresh ())];
-          line = [%e A.eint ~loc loc.loc_start.pos_lnum];
+          loc =
+            ( ( [%e A.eint ~loc loc.loc_start.pos_lnum],
+                [%e
+                  A.eint ~loc (loc.loc_start.pos_cnum - loc.loc_start.pos_bol)]
+              ),
+              ( [%e A.eint ~loc loc.loc_end.pos_lnum],
+                [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
+            );
         }
       ~func:[%e A.estring ~loc what]]
 

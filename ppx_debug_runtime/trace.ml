@@ -1,6 +1,9 @@
 let open_channels : (string * out_channel) list ref = ref []
 
 module Id = struct
+  type loc = (int * int) * (int * int)
+  [@@deriving show { with_path = false }, yojson]
+
   type t = {
     (* the combination of file (compilation unit) and id is sufficiently unique *)
     file : string;
@@ -8,18 +11,22 @@ module Id = struct
     (* extra fields *)
     (* func : string; *)
     (* modname : string; *)
-    line : int;
+    loc : loc;
   }
   [@@deriving show { with_path = false }, yojson]
 
-  let dummy = { file = "_none"; id = -1; line = -1 }
-  let serialize { file; id; line } = Format.sprintf "%s:%d:%d" file id line
+  let dummy_loc = ((-1, -1), (-1, -1))
+  let dummy = { file = "_none"; id = -1; loc = dummy_loc }
+
+  let serialize { file; id; loc = (sl, sc), (el, ec) } =
+    Format.sprintf "%s:%d:%d:%d:%d:%d" file id sl sc el ec
 
   let deserialize file =
-    Scanf.bscanf file "%s@:%d:%d\n" @@ fun file id line -> { file; id; line }
+    Scanf.bscanf file "%s@:%d:%d:%d:%d:%d\n" @@ fun file id sl sc el ec ->
+    { file; id; loc = ((sl, sc), (el, ec)) }
 
-  let show { file; id; line } =
-    Format.sprintf "(file: %s, id: %d, line: %d)" file id line
+  let show { file; id; loc } =
+    Format.asprintf "(file: %s, id: %d, loc: %a)" file id pp_loc loc
 end
 
 (* really simple internal trace format. this is written in binary mode (via the emit_* functions, which marshal ocaml values) and read together with type metadata to unmarshal values (producing text) *)
@@ -309,7 +316,8 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
     (* decide what to present for each kind of node *)
     match t with
     | Event { id; name; content; _ } ->
-      let breakpoints = (id.line, nid) :: breakpoints in
+      let (line, _), _ = id.loc in
+      let breakpoints = (line, nid) :: breakpoints in
       let this =
         `Assoc
           [
@@ -321,7 +329,8 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
       in
       (nid, nid, (nid, this) :: nodes, new_edges @ edges, breakpoints)
     | Call { id; name; calls; args; _ } ->
-      let breakpoints = (id.line, nid) :: breakpoints in
+      let (line, _), _ = id.loc in
+      let breakpoints = (line, nid) :: breakpoints in
       let this =
         `Assoc
           [
@@ -438,32 +447,32 @@ let%expect_test _ =
     {
       "nodes": {
         "0": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "f",
           "args": {}
         },
         "1": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "a",
           "content": "x"
         },
         "2": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "b",
           "content": "y"
         },
         "3": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "g",
           "args": {}
         },
         "4": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "c",
           "content": "z"
         },
         "5": {
-          "id": { "file": "_none", "id": -1, "line": -1 },
+          "id": { "file": "_none", "id": -1, "loc": [ [ -1, -1 ], [ -1, -1 ] ] },
           "name": "d",
           "content": "w"
         }

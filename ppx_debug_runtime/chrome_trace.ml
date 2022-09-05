@@ -5,7 +5,7 @@
    there are at least two other options for writing trace data in a way that allows one of https://magic-trace.org/, https://ui.perfetto.dev/#!/, or chrome://tracing to be used; see https://github.com/ocaml/dune/pull/5618 *)
 let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
   match call with
-  | Event { time; name; content; i; _ } ->
+  | Event { time; name; content; i; id = { file; loc; _ } } ->
     [
       `Assoc
         [
@@ -14,10 +14,26 @@ let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
           ("pid", `Float 1.);
           ("tid", `Float 1.);
           ("name", `String name);
-          ("args", `Assoc [("_i", `Int i); ("content", `String content)]);
+          ( "args",
+            `Assoc
+              [
+                ("_i", `Int i);
+                ("_file", `String file);
+                ("_loc", `String (Trace.Id.show_loc loc));
+                ("content", `String content);
+              ] );
         ];
     ]
-  | Call { name = func; start_time; end_time; args; calls; i; _ } ->
+  | Call
+      {
+        name = func;
+        start_time;
+        end_time;
+        args;
+        calls;
+        i;
+        id = { file; loc; _ };
+      } ->
     let start, end_ =
       match func with
       | _ when String.equal func Trace.top_level_node -> ([], [])
@@ -32,8 +48,12 @@ let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
                 ("tid", `Float 1.);
                 ( "args",
                   `Assoc
-                    (("_i", `Int i)
-                    :: List.map (fun (k, v) -> (k, `String v)) args) );
+                    ([
+                       ("_i", `Int i);
+                       ("_file", `String file);
+                       ("_loc", `String (Trace.Id.show_loc loc));
+                     ]
+                    @ List.map (fun (k, v) -> (k, `String v)) args) );
               ];
           ],
           [
