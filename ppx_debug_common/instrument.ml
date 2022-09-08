@@ -428,14 +428,21 @@ let check_should_transform config modname fn =
         "__";
       ]
   then not_transforming "%s is a printer or generated" fn;
-  match config.Config.mode with
-  | All bs when List.mem ~eq:String.equal fn bs ->
-    not_transforming "%s is in function blacklist" fn
-  | Some bs when not (List.mem ~eq:String.equal fn bs) ->
+
+  let mwl = Str.regexp config.Config.instrument_modules in
+  let fwl = Str.regexp config.Config.instrument_functions in
+
+  if not (Str.string_match mwl modname 0) then
+    not_transforming "%s is not in module whitelist" modname;
+  if not (Str.string_match fwl fn 0) then
     not_transforming "%s is not in function whitelist" fn
-  | Modules m when not (List.mem ~eq:String.equal modname m) ->
-    not_transforming "%s is not in module whitelist" modname
-  | _ -> ()
+
+(* match config.Config.mode with
+   | All bs when List.mem ~eq:String.equal fn bs ->
+     not_transforming "%s is in function blacklist" fn
+   | Some bs when not (List.mem ~eq:String.equal fn bs) -> *)
+(* | Modules m when not (List.mem ~eq:String.equal modname m) -> *)
+(* | _ -> () *)
 
 let nonrecursive_rhs filename func =
   let loc = func.loc in

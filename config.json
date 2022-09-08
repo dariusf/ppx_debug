@@ -1,6 +1,8 @@
 {
   "enabled": true,
   "mode": ["All", []],
+  "instrument_modules": "Project",
+  "instrument_functions": ".*",
   "file1": "debug.trace",
   "randomize_filename": true,
   "ppx_logging": true,

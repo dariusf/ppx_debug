@@ -79,7 +79,11 @@ type t = {
   (* whether to run the ppx *)
   enabled : bool;
   (* control which functions/modules to log *)
+  (* deprecated *)
   mode : mode;
+  (* control which functions/modules to log via regexes *)
+  instrument_modules : string;
+  instrument_functions : string;
   (* the file the raw trace should be written to *)
   file1 : string;
   randomize_filename : bool;
@@ -113,6 +117,8 @@ let default =
   {
     enabled = true;
     mode = All [];
+    instrument_modules = ".*";
+    instrument_functions = ".*";
     file1 = "debug.trace";
     randomize_filename = false;
     ppx_logging = true;
