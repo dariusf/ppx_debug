@@ -605,6 +605,9 @@ let traverse filename modname config =
                 Cfk_concrete (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
               );
         }
+      | { pcf_desc = Pcf_method (_, _, Cfk_concrete (_, e)); _ } ->
+        log "unhandled Pcf_method: %a" Pprintast.expression e;
+        cf
       | { pcf_desc = desc; _ } ->
         let name =
           match desc with
