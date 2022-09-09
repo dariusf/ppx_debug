@@ -55,3 +55,8 @@ let obj n =
     end
   in
   a#f (2 + n)
+
+class virtual clz =
+  object
+    method g x = x * 2
+  end

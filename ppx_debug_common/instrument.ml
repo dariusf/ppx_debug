@@ -483,14 +483,6 @@ let transform_binding_nonrecursively config filename modname b =
   in
   [{ b with pvb_expr = new_rhs1 }]
 
-let transform_method_nonrecursively config filename modname func =
-  (* let func = extract_binding_info b in *)
-  let new_rhs1 =
-    transform_bound_func_nonrecursively config filename modname func
-  in
-  new_rhs1
-(* [{ b with pvb_expr = }] *)
-
 let transform_binding_recursively config filename modname b =
   let loc = b.pvb_loc in
   let func = extract_binding_info b in
@@ -585,6 +577,35 @@ let traverse filename modname config =
   object (self)
     inherit Ast_traverse.map (* _with_expansion_context *) as super
 
+    method handle_method cf =
+      match cf with
+      | {
+       pcf_desc =
+         Pcf_method
+           ( ({ txt = name; _ } as ident),
+             priv,
+             Cfk_concrete (over, ({ pexp_desc = Pexp_poly (fn, otyp); _ } as ex))
+           );
+       _;
+      } ->
+        (* figure out the function name from the method *)
+        let func = { (normalize_fn fn) with name } in
+        (* recursively transform only the body -- transforming the function itself would do the work twice *)
+        let func = { func with body = self#expression func.body } in
+        let e1 =
+          transform_bound_func_nonrecursively config filename modname func
+        in
+        {
+          cf with
+          pcf_desc =
+            Pcf_method
+              ( ident,
+                priv,
+                Cfk_concrete (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
+              );
+        }
+      | _ -> cf
+
     method! expression e =
       match e with
       | {
@@ -669,41 +690,7 @@ let traverse filename modname config =
             A.pexp_extension ~loc (Location.error_extensionf ~loc "%s" s)
         end
       | { pexp_desc = Pexp_object cls; _ } ->
-        let ms =
-          List.map
-            (fun cf ->
-              match cf with
-              | {
-               pcf_desc =
-                 Pcf_method
-                   ( ({ txt = name; _ } as ident),
-                     priv,
-                     Cfk_concrete
-                       (over, ({ pexp_desc = Pexp_poly (fn, otyp); _ } as ex))
-                   );
-               _;
-              } ->
-                (* figure out the function name from the method *)
-                let func = { (normalize_fn fn) with name } in
-                (* recursively transform only the body -- transforming the function itself would do the work twice *)
-                let func = { func with body = self#expression func.body } in
-                let e1 =
-                  transform_bound_func_nonrecursively config filename modname
-                    func
-                in
-                {
-                  cf with
-                  pcf_desc =
-                    Pcf_method
-                      ( ident,
-                        priv,
-                        Cfk_concrete
-                          (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
-                      );
-                }
-              | _ -> cf)
-            cls.pcstr_fields
-        in
+        let ms = List.map self#handle_method cls.pcstr_fields in
         { e with pexp_desc = Pexp_object { cls with pcstr_fields = ms } }
       | _ -> super#expression e
 
@@ -735,6 +722,47 @@ let traverse filename modname config =
             in
             r
           with
+          | NotTransforming s ->
+            log "not transforming: %s" s;
+            si
+          | Failure s ->
+            A.pstr_extension ~loc (Location.error_extensionf ~loc "%s" s) []
+            (* A.pstr_value ~loc Nonrecursive
+               [
+                 A.value_binding ~loc ~pat:(A.ppat_any ~loc)
+                   ~expr:;
+               ] *)
+        end
+      | { pstr_desc = Pstr_class cdecls; pstr_loc = loc; _ } ->
+        let transform_class_structure cstr =
+          match cstr with
+          | Pcl_structure c_str ->
+            Pcl_structure
+              {
+                c_str with
+                pcstr_fields = List.map self#handle_method c_str.pcstr_fields;
+              }
+          | _ -> cstr
+        in
+        let transform si =
+          let cdecls =
+            List.map
+              (fun cdecl ->
+                {
+                  cdecl with
+                  pci_expr =
+                    {
+                      cdecl.pci_expr with
+                      pcl_desc =
+                        transform_class_structure cdecl.pci_expr.pcl_desc;
+                    };
+                })
+              cdecls
+          in
+          { si with pstr_desc = Pstr_class cdecls }
+        in
+        begin
+          try transform si with
           | NotTransforming s ->
             log "not transforming: %s" s;
             si

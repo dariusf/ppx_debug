@@ -699,3 +699,43 @@ let obj n =
       ~ppx_debug_id:{ file = "test.ml"; id = 82; loc = ((51, 8), (57, 13)) }
       ~func:"obj");
    _res)
+class virtual clz =
+  object
+    method g x =
+      let g_original x = x * 2 in
+      (let ppx_debug_file =
+         let open Ppx_debug_runtime.Config in get_file (read ()) in
+       Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
+         ~ppx_debug_id:{
+                         file = "test.ml";
+                         id = 85;
+                         loc = ((61, 13), (61, 22))
+                       } ~func:"g");
+      ((let ppx_debug_file =
+          let open Ppx_debug_runtime.Config in get_file (read ()) in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:{
+                          file = "test.ml";
+                          id = 87;
+                          loc = ((61, 13), (61, 22))
+                        } "x" x);
+       ());
+      (let _res = g_original x in
+       (let ppx_debug_file =
+          let open Ppx_debug_runtime.Config in get_file (read ()) in
+        Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
+          ~ppx_debug_id:{
+                          file = "test.ml";
+                          id = 88;
+                          loc = ((61, 13), (61, 22))
+                        } "_res" _res);
+       (let ppx_debug_file =
+          let open Ppx_debug_runtime.Config in get_file (read ()) in
+        Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
+          ~ppx_debug_id:{
+                          file = "test.ml";
+                          id = 86;
+                          loc = ((61, 13), (61, 22))
+                        } ~func:"g");
+       _res)
+  end
