@@ -47,3 +47,11 @@ let a () =
 
 let lambda_unhandled () = List.map (fun (a, b) -> a + b) [(1, 2)]
 let keep_type_annotations (t : int) = t
+
+let obj n =
+  let a =
+    object
+      method f x = x + 1
+    end
+  in
+  a#f (2 + n)

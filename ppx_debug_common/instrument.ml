@@ -39,6 +39,7 @@ let fresh_v () = Format.sprintf "v%d" (fresh ())
 
 type label = arg_label * expression option
 
+(* TODO this needs to be replaced with (or at least keep) a pat *)
 type param =
   | Param of {
       label : label;
@@ -462,8 +463,8 @@ let nonrecursive_rhs filename func =
   in
   build_fn func
 
-let transform_binding_nonrecursively config filename modname b =
-  let func = extract_binding_info b in
+let transform_bound_func_nonrecursively config filename modname func =
+  (* let func = extract_binding_info b in *)
   check_should_transform config modname func.name;
   let func =
     {
@@ -472,7 +473,23 @@ let transform_binding_nonrecursively config filename modname b =
     }
   in
   let new_rhs1 = nonrecursive_rhs filename func in
+  new_rhs1
+(* [{ b with pvb_expr = new_rhs1 }] *)
+
+let transform_binding_nonrecursively config filename modname b =
+  let func = extract_binding_info b in
+  let new_rhs1 =
+    transform_bound_func_nonrecursively config filename modname func
+  in
   [{ b with pvb_expr = new_rhs1 }]
+
+let transform_method_nonrecursively config filename modname func =
+  (* let func = extract_binding_info b in *)
+  let new_rhs1 =
+    transform_bound_func_nonrecursively config filename modname func
+  in
+  new_rhs1
+(* [{ b with pvb_expr = }] *)
 
 let transform_binding_recursively config filename modname b =
   let loc = b.pvb_loc in
@@ -651,6 +668,43 @@ let traverse filename modname config =
           | Failure s ->
             A.pexp_extension ~loc (Location.error_extensionf ~loc "%s" s)
         end
+      | { pexp_desc = Pexp_object cls; _ } ->
+        let ms =
+          List.map
+            (fun cf ->
+              match cf with
+              | {
+               pcf_desc =
+                 Pcf_method
+                   ( ({ txt = name; _ } as ident),
+                     priv,
+                     Cfk_concrete
+                       (over, ({ pexp_desc = Pexp_poly (fn, otyp); _ } as ex))
+                   );
+               _;
+              } ->
+                (* figure out the function name from the method *)
+                let func = { (normalize_fn fn) with name } in
+                (* recursively transform only the body -- transforming the function itself would do the work twice *)
+                let func = { func with body = self#expression func.body } in
+                let e1 =
+                  transform_bound_func_nonrecursively config filename modname
+                    func
+                in
+                {
+                  cf with
+                  pcf_desc =
+                    Pcf_method
+                      ( ident,
+                        priv,
+                        Cfk_concrete
+                          (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
+                      );
+                }
+              | _ -> cf)
+            cls.pcstr_fields
+        in
+        { e with pexp_desc = Pexp_object { cls with pcstr_fields = ms } }
       | _ -> super#expression e
 
     method! structure_item si =
