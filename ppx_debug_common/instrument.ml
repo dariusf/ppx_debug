@@ -604,7 +604,20 @@ let traverse filename modname config =
                 Cfk_concrete (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
               );
         }
-      | _ -> cf
+      | { pcf_desc = desc; _ } ->
+        let name =
+          match desc with
+          | Pcf_inherit (_, _, _) -> "Pcf_inherit"
+          | Pcf_val _ -> "Pcf_val"
+          | Pcf_method _ ->
+            failwith "Pcf_method should already have been handled"
+          | Pcf_constraint _ -> "Pcf_constraint"
+          | Pcf_initializer _ -> "Pcf_initializer"
+          | Pcf_attribute _ -> "Pcf_attribute"
+          | Pcf_extension _ -> "Pcf_extension"
+        in
+        log "unhandled: %s" name;
+        cf
 
     method! expression e =
       match e with
@@ -742,7 +755,21 @@ let traverse filename modname config =
                 c_str with
                 pcstr_fields = List.map self#handle_method c_str.pcstr_fields;
               }
-          | _ -> cstr
+          | _ ->
+            let constr =
+              match cstr with
+              | Pcl_structure _ ->
+                failwith "Pcl_structure should already have been handled"
+              | Pcl_constr (_, _) -> "Pcl_constr"
+              | Pcl_fun (_, _, _, _) -> "Pcl_fun "
+              | Pcl_apply (_, _) -> "Pcl_apply "
+              | Pcl_let (_, _, _) -> "Pcl_let "
+              | Pcl_constraint (_, _) -> "Pcl_constraint "
+              | Pcl_extension _ -> "Pcl_extension "
+              | Pcl_open (_, _) -> "_Pcl_open "
+            in
+            log "unhandled: %s" constr;
+            cstr
         in
         let transform si =
           let cdecls =
