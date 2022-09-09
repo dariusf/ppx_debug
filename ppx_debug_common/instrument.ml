@@ -579,6 +579,7 @@ let traverse filename modname config =
 
     method handle_method cf =
       match cf with
+      | { pcf_desc = Pcf_method (_, _, Cfk_virtual _); _ } -> cf
       | {
        pcf_desc =
          Pcf_method
