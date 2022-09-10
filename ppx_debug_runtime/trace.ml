@@ -99,15 +99,23 @@ let get_time =
       t
     end
 
+let sanity_check () =
+  match Sys.getenv_opt "PPX_DEBUG_DEBUG" with
+  | Some _ -> print_endline "this should not appear while tool is running"
+  | None -> ()
+
 let emit_start ~ppx_debug_file ~ppx_debug_id:id ~func =
+  sanity_check ();
   Printf.fprintf (lazy_init ppx_debug_file) "start\n%s\n%d\n%s\n"
     (Id.serialize id) (get_time ()) func
 
 let emit_end ~ppx_debug_file ~ppx_debug_id:id ~func =
+  sanity_check ();
   Printf.fprintf (lazy_init ppx_debug_file) "end\n%s\n%d\n%s\n"
     (Id.serialize id) (get_time ()) func
 
 let emit_raw ~ppx_debug_file ~ppx_debug_id:id typ what v =
+  sanity_check ();
   (* if a function is given, instead of throwing an exception, output a string.
      this is okay because the printer for functions ignores its argument. *)
   let[@warning "-52"] s =
