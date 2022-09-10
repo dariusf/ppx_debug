@@ -360,24 +360,33 @@ let generate_end ~loc cu what =
         }
       ~func:[%e A.estring ~loc what]]
 
-let run_invoc cu fn_expr func =
+let run_invoc modname (config : Config.t) filename fn_expr func =
   let loc = func.loc in
   (* TODO should fn_name be given to func in generate_printer? *)
-  let start = generate_start ~loc cu func.name in
-  let stop = generate_end ~loc cu func.name in
+  let start = generate_start ~loc filename func.name in
+  let stop = generate_end ~loc filename func.name in
   let print_params =
     func.params
     |> List.filter_map (function
-         | Param { param = { txt = s; _ }; _ } -> Some (generate_arg ~loc cu s)
+         | Param { param = { txt = s; _ }; _ } ->
+           Some (generate_arg ~loc filename s)
          | Unit _ -> None)
   in
   let print_params =
-    (* match print_params with
-       | [] -> [%expr ()]
-       | [e] -> e
-       | f :: r ->
-         List.fold_left (fun t c -> A.pexp_sequence ~loc c t) f r *)
-    List.fold_right (A.pexp_sequence ~loc) print_params [%expr ()]
+    if
+      List.exists
+        (fun (m, f) ->
+          Str.string_match (Str.regexp m) modname 0
+          && Str.string_match (Str.regexp f) func.name 0)
+        config.light_logging
+    then [%expr ()]
+    else
+      (* match print_params with
+         | [] -> [%expr ()]
+         | [e] -> e
+         | f :: r ->
+           List.fold_left (fun t c -> A.pexp_sequence ~loc c t) f r *)
+      List.fold_right (A.pexp_sequence ~loc) print_params [%expr ()]
   in
   let call_fn =
     A.pexp_apply ~loc fn_expr
@@ -391,11 +400,21 @@ let run_invoc cu fn_expr func =
            | Unit _ ->
              (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
   in
+  let print_res =
+    if
+      List.exists
+        (fun (m, f) ->
+          Str.string_match (Str.regexp m) modname 0
+          && Str.string_match (Str.regexp f) func.name 0)
+        config.light_logging
+    then [%expr ()]
+    else generate_arg ~loc filename "_res"
+  in
   [%expr
     [%e start];
     [%e print_params];
     let _res = [%e call_fn] in
-    [%e generate_arg ~loc cu "_res"];
+    [%e print_res];
     [%e stop];
     _res]
 
@@ -447,7 +466,7 @@ let check_should_transform_fn config fn =
 (* | Modules m when not (List.mem ~eq:String.equal modname m) -> *)
 (* | _ -> () *)
 
-let nonrecursive_rhs filename func =
+let nonrecursive_rhs modname config filename func =
   let loc = func.loc in
   let open Ast_helper in
   let func =
@@ -460,12 +479,14 @@ let nonrecursive_rhs filename func =
               ~pat:(Pat.var { txt = mangle func.name; loc })
               ~expr:(build_fn func);
           ]
-          (run_invoc filename (ident ~loc (mangle func.name)) func);
+          (run_invoc modname config filename
+             (ident ~loc (mangle func.name))
+             func);
     }
   in
   build_fn func
 
-let transform_bound_func_nonrecursively config filename func =
+let transform_bound_func_nonrecursively config modname filename func =
   (* let func = extract_binding_info b in *)
   check_should_transform_fn config func.name;
   let func =
@@ -474,16 +495,18 @@ let transform_bound_func_nonrecursively config filename func =
       body = (replace_calls func.name (mangle func.name))#expression func.body;
     }
   in
-  let new_rhs1 = nonrecursive_rhs filename func in
+  let new_rhs1 = nonrecursive_rhs modname config filename func in
   new_rhs1
 (* [{ b with pvb_expr = new_rhs1 }] *)
 
-let transform_binding_nonrecursively config filename b =
+let transform_binding_nonrecursively config modname filename b =
   let func = extract_binding_info b in
-  let new_rhs1 = transform_bound_func_nonrecursively config filename func in
+  let new_rhs1 =
+    transform_bound_func_nonrecursively config modname filename func
+  in
   [{ b with pvb_expr = new_rhs1 }]
 
-let transform_binding_recursively config filename b =
+let transform_binding_recursively modname config filename b =
   let loc = b.pvb_loc in
   let func = extract_binding_info b in
   check_should_transform_fn config func.name;
@@ -499,7 +522,9 @@ let transform_binding_recursively config filename b =
   let new_rhs1 =
     let open Ast_helper in
     let run =
-      run_invoc filename [%expr [%e ident ~loc (mangle func.name)] aux] func
+      run_invoc modname config filename
+        [%expr [%e ident ~loc (mangle func.name)] aux]
+        func
     in
     let ps1 =
       func.params
@@ -544,7 +569,7 @@ let all_function_bindings bs =
   in
   List.for_all (fun b -> is_func b.pvb_expr) bs
 
-let transform_bindings filename config rec_flag bindings =
+let transform_bindings modname filename config rec_flag bindings =
   if not (all_function_bindings bindings) then
     not_transforming "not all right sides are functions. left sides: %s"
       (List.map
@@ -554,11 +579,11 @@ let transform_bindings filename config rec_flag bindings =
   match rec_flag with
   | Recursive ->
     List.concat_map
-      (fun b -> transform_binding_recursively config filename b)
+      (fun b -> transform_binding_recursively modname config filename b)
       bindings
   | Nonrecursive ->
     List.concat_map
-      (fun b -> transform_binding_nonrecursively config filename b)
+      (fun b -> transform_binding_nonrecursively config modname filename b)
       bindings
 
 (** This looks for bindings in expression and structure contexts:
@@ -573,7 +598,7 @@ let transform_bindings filename config rec_flag bindings =
     binding; this may fail if e.g. it doesn't bind a function.
 
 *)
-let traverse filename config =
+let traverse modname filename config =
   object (self)
     inherit Ast_traverse.map (* _with_expansion_context *) as super
 
@@ -596,7 +621,9 @@ let traverse filename config =
             let func = { (normalize_fn fn) with name } in
             (* recursively transform only the body -- transforming the function itself would do the work twice *)
             let func = { func with body = self#expression func.body } in
-            let e1 = transform_bound_func_nonrecursively config filename func in
+            let e1 =
+              transform_bound_func_nonrecursively config modname filename func
+            in
             {
               cf with
               pcf_desc =
@@ -609,7 +636,9 @@ let traverse filename config =
           | { pexp_desc = Pexp_fun _; _ } ->
             let func = { (normalize_fn mrhs) with name } in
             let func = { func with body = self#expression func.body } in
-            let e1 = transform_bound_func_nonrecursively config filename func in
+            let e1 =
+              transform_bound_func_nonrecursively config modname filename func
+            in
             {
               cf with
               pcf_desc = Pcf_method (ident, priv, Cfk_concrete (over, e1));
@@ -684,7 +713,7 @@ let traverse filename config =
           e
         else
           let func = { func with body = self#expression func.body } in
-          nonrecursive_rhs filename func
+          nonrecursive_rhs modname config filename func
       | { pexp_desc = Pexp_let (rec_flag, bindings, body); pexp_loc = loc; _ }
         ->
         let bindings =
@@ -710,7 +739,7 @@ let traverse filename config =
               pexp_desc =
                 Pexp_let
                   ( rec_flag,
-                    transform_bindings filename config rec_flag bindings,
+                    transform_bindings modname filename config rec_flag bindings,
                     body );
             }
           with
@@ -749,7 +778,7 @@ let traverse filename config =
           try
             let r =
               Ast_helper.Str.value flag
-                (transform_bindings filename config rec_flag bindings)
+                (transform_bindings modname filename config rec_flag bindings)
             in
             r
           with
@@ -829,7 +858,7 @@ let traverse filename config =
 let process file modname config str =
   try
     check_should_transform_module config modname;
-    (traverse file config)#structure str
+    (traverse modname file config)#structure str
   with NotTransforming s ->
     log "not transforming structure: %s" s;
     str
