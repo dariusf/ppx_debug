@@ -20,7 +20,6 @@ let () =
                   | { pstr_loc; _ } :: _ -> pstr_loc.loc_start.pos_fname
                 in *)
              (* file  *)
-             (Ppx_debug_common.Instrument.traverse filename modname config)
-               #structure s)
+             Ppx_debug_common.Instrument.process filename modname config s)
            ~position:After)
       "ppx_debug"

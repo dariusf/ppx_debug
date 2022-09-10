@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "mode": ["All", []],
-  "instrument_modules": "Project",
+  "instrument_modules": ".*",
   "instrument_functions": ".*",
   "file1": "debug.trace",
   "randomize_filename": true,

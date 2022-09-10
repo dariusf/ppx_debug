@@ -415,7 +415,12 @@ let run_invoc cu fn_expr func =
         [result_printer];
       ]) [@metaloc loc]) *)
 
-let check_should_transform config modname fn =
+let check_should_transform_module config modname =
+  let mwl = Str.regexp config.Config.instrument_modules in
+  if not (Str.string_match mwl modname 0) then
+    not_transforming "%s is not in module whitelist" modname
+
+let check_should_transform_fn config fn =
   (* built-in blacklist. don't instrument printers and some generated code that can be identified syntactically *)
   if List.mem ~eq:String.equal fn ["pp"; "show"] then
     not_transforming "%s is a printer or generated" fn;
@@ -430,11 +435,8 @@ let check_should_transform config modname fn =
       ]
   then not_transforming "%s is a printer or generated" fn;
 
-  let mwl = Str.regexp config.Config.instrument_modules in
   let fwl = Str.regexp config.Config.instrument_functions in
 
-  if not (Str.string_match mwl modname 0) then
-    not_transforming "%s is not in module whitelist" modname;
   if not (Str.string_match fwl fn 0) then
     not_transforming "%s is not in function whitelist" fn
 
@@ -463,9 +465,9 @@ let nonrecursive_rhs filename func =
   in
   build_fn func
 
-let transform_bound_func_nonrecursively config filename modname func =
+let transform_bound_func_nonrecursively config filename func =
   (* let func = extract_binding_info b in *)
-  check_should_transform config modname func.name;
+  check_should_transform_fn config func.name;
   let func =
     {
       func with
@@ -476,17 +478,15 @@ let transform_bound_func_nonrecursively config filename modname func =
   new_rhs1
 (* [{ b with pvb_expr = new_rhs1 }] *)
 
-let transform_binding_nonrecursively config filename modname b =
+let transform_binding_nonrecursively config filename b =
   let func = extract_binding_info b in
-  let new_rhs1 =
-    transform_bound_func_nonrecursively config filename modname func
-  in
+  let new_rhs1 = transform_bound_func_nonrecursively config filename func in
   [{ b with pvb_expr = new_rhs1 }]
 
-let transform_binding_recursively config filename modname b =
+let transform_binding_recursively config filename b =
   let loc = b.pvb_loc in
   let func = extract_binding_info b in
-  check_should_transform config modname func.name;
+  check_should_transform_fn config func.name;
   let original_fn_body, loc =
     let body = (replace_calls func.name "self")#expression func.body in
     let self =
@@ -544,7 +544,7 @@ let all_function_bindings bs =
   in
   List.for_all (fun b -> is_func b.pvb_expr) bs
 
-let transform_bindings filename modname config rec_flag bindings =
+let transform_bindings filename config rec_flag bindings =
   if not (all_function_bindings bindings) then
     not_transforming "not all right sides are functions. left sides: %s"
       (List.map
@@ -554,11 +554,11 @@ let transform_bindings filename modname config rec_flag bindings =
   match rec_flag with
   | Recursive ->
     List.concat_map
-      (fun b -> transform_binding_recursively config filename modname b)
+      (fun b -> transform_binding_recursively config filename b)
       bindings
   | Nonrecursive ->
     List.concat_map
-      (fun b -> transform_binding_nonrecursively config filename modname b)
+      (fun b -> transform_binding_nonrecursively config filename b)
       bindings
 
 (** This looks for bindings in expression and structure contexts:
@@ -573,41 +573,55 @@ let transform_bindings filename modname config rec_flag bindings =
     binding; this may fail if e.g. it doesn't bind a function.
 
 *)
-let traverse filename modname config =
+let traverse filename config =
   object (self)
     inherit Ast_traverse.map (* _with_expansion_context *) as super
 
     method handle_method cf =
       match cf with
-      | { pcf_desc = Pcf_method (_, _, Cfk_virtual _); _ } -> cf
+      | { pcf_desc = Pcf_method ({ txt = name; _ }, _, Cfk_virtual _); _ } ->
+        (* cf *)
+        not_transforming "virtual method %s" name
       | {
        pcf_desc =
          Pcf_method
-           ( ({ txt = name; _ } as ident),
-             priv,
-             Cfk_concrete (over, ({ pexp_desc = Pexp_poly (fn, otyp); _ } as ex))
-           );
+           (({ txt = name; _ } as ident), priv, Cfk_concrete (over, mrhs));
        _;
       } ->
-        (* figure out the function name from the method *)
-        let func = { (normalize_fn fn) with name } in
-        (* recursively transform only the body -- transforming the function itself would do the work twice *)
-        let func = { func with body = self#expression func.body } in
-        let e1 =
-          transform_bound_func_nonrecursively config filename modname func
-        in
-        {
-          cf with
-          pcf_desc =
-            Pcf_method
-              ( ident,
-                priv,
-                Cfk_concrete (over, { ex with pexp_desc = Pexp_poly (e1, otyp) })
-              );
-        }
-      | { pcf_desc = Pcf_method (_, _, Cfk_concrete (_, e)); _ } ->
-        log "unhandled Pcf_method: %a" Pprintast.expression e;
-        cf
+        (* check_should_transform_fn config name; *)
+        begin
+          match mrhs with
+          | { pexp_desc = Pexp_poly (fn, otyp); _ } ->
+            (* figure out the function name from the method *)
+            let func = { (normalize_fn fn) with name } in
+            (* recursively transform only the body -- transforming the function itself would do the work twice *)
+            let func = { func with body = self#expression func.body } in
+            let e1 = transform_bound_func_nonrecursively config filename func in
+            {
+              cf with
+              pcf_desc =
+                Pcf_method
+                  ( ident,
+                    priv,
+                    Cfk_concrete
+                      (over, { mrhs with pexp_desc = Pexp_poly (e1, otyp) }) );
+            }
+          | { pexp_desc = Pexp_fun _; _ } ->
+            let func = { (normalize_fn mrhs) with name } in
+            let func = { func with body = self#expression func.body } in
+            let e1 = transform_bound_func_nonrecursively config filename func in
+            {
+              cf with
+              pcf_desc = Pcf_method (ident, priv, Cfk_concrete (over, e1));
+            }
+          | e ->
+            log "unhandled %s: %a %a" name Pp.debug_pexpr e Pprintast.expression
+              e;
+            (* this is not exposed by ppxlib apparently *)
+            (* log "unhandled Pcf_method: %a" (Ocaml_common.Printast.expression 0) e; *)
+            cf
+        end
+      (* | { pcf_desc = Pcf_method (_, _, Cfk_concrete (_, e)); _ } -> *)
       | { pcf_desc = desc; _ } ->
         let name =
           match desc with
@@ -678,7 +692,7 @@ let traverse filename modname config =
             (fun b ->
               try
                 let func = extract_binding_info b in
-                check_should_transform config modname func.name;
+                check_should_transform_fn config func.name;
                 {
                   b with
                   pvb_expr = transform_fn_body self#expression b.pvb_expr;
@@ -696,7 +710,7 @@ let traverse filename modname config =
               pexp_desc =
                 Pexp_let
                   ( rec_flag,
-                    transform_bindings filename modname config rec_flag bindings,
+                    transform_bindings filename config rec_flag bindings,
                     body );
             }
           with
@@ -719,7 +733,7 @@ let traverse filename modname config =
             (fun b ->
               try
                 let func = extract_binding_info b in
-                check_should_transform config modname func.name;
+                check_should_transform_fn config func.name;
                 {
                   b with
                   pvb_expr = transform_fn_body self#expression b.pvb_expr;
@@ -735,7 +749,7 @@ let traverse filename modname config =
           try
             let r =
               Ast_helper.Str.value flag
-                (transform_bindings filename modname config rec_flag bindings)
+                (transform_bindings filename config rec_flag bindings)
             in
             r
           with
@@ -775,7 +789,7 @@ let traverse filename modname config =
             log "unhandled: %s" constr;
             cstr
         in
-        let transform si =
+        let handle_si si =
           let cdecls =
             List.map
               (fun cdecl ->
@@ -793,7 +807,7 @@ let traverse filename modname config =
           { si with pstr_desc = Pstr_class cdecls }
         in
         begin
-          try transform si with
+          try handle_si si with
           | NotTransforming s ->
             log "not transforming: %s" s;
             si
@@ -807,3 +821,15 @@ let traverse filename modname config =
         end
       | _ -> super#structure_item si
   end
+
+(* let traverse filename modname config =
+   try traverse_ filename modname config
+   with NotTransforming s -> log "not transforming: %s" s *)
+
+let process file modname config str =
+  try
+    check_should_transform_module config modname;
+    (traverse file config)#structure str
+  with NotTransforming s ->
+    log "not transforming structure: %s" s;
+    str
