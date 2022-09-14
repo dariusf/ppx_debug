@@ -686,8 +686,8 @@ let traverse modname filename config =
        _;
       } ->
         generate_value ~loc filename id
-      | { pexp_desc = Pexp_match (scr, cases); pexp_loc = loc; _ }
-        when config.Config.matches ->
+      | { pexp_desc = Pexp_match (scr, cases); _ } when config.Config.matches ->
+        let loc = scr.pexp_loc in
         let scr = self#expression scr in
         let cases =
           List.map

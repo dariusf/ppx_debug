@@ -8,7 +8,7 @@ let fact n =
              ~ppx_debug_id:{
                              file = "test.ml";
                              id = 0;
-                             loc = ((4, 17), (4, 60))
+                             loc = ((4, 23), (4, 24))
                            } "match" "n" n);
           n
     with
@@ -153,7 +153,7 @@ let rec ping : int -> int =
                ~ppx_debug_id:{
                                file = "test.ml";
                                id = 21;
-                               loc = ((17, 37), (17, 76))
+                               loc = ((17, 43), (17, 44))
                              } "match" "n" n);
             n
       with
@@ -202,7 +202,7 @@ and pong : int -> int =
                ~ppx_debug_id:{
                                file = "test.ml";
                                id = 22;
-                               loc = ((18, 33), (18, 72))
+                               loc = ((18, 39), (18, 40))
                              } "match" "n" n);
             n
       with
@@ -252,7 +252,7 @@ let ext =
                  ~ppx_debug_id:{
                                  file = "test.ml";
                                  id = 31;
-                                 loc = ((22, 12), (22, 52))
+                                 loc = ((22, 18), (22, 19))
                                } "match" "n" n);
               n
         with
@@ -304,7 +304,7 @@ let ext =
                  ~ppx_debug_id:{
                                  file = "test.ml";
                                  id = 32;
-                                 loc = ((24, 12), (24, 52))
+                                 loc = ((24, 18), (24, 19))
                                } "match" "n" n);
               n
         with
