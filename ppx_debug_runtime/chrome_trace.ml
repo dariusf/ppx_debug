@@ -6,24 +6,26 @@
 let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
   match call with
   | Event { time; name; content; i; id = { file; loc; _ } } ->
-    [
-      `Assoc
-        [
-          ("ph", `String "i");
-          ("ts", `Float (float_of_int time));
-          ("pid", `Float 1.);
-          ("tid", `Float 1.);
-          ("name", `String name);
-          ( "args",
-            `Assoc
-              [
-                ("_i", `Int i);
-                ("_file", `String file);
-                ("_loc", `String (Trace.Id.show_loc loc));
-                ("content", `String content);
-              ] );
-        ];
-    ]
+    ignore
+      [
+        `Assoc
+          [
+            ("ph", `String "i");
+            ("ts", `Float (float_of_int time));
+            ("pid", `Float 1.);
+            ("tid", `Float 1.);
+            ("name", `String name);
+            ( "args",
+              `Assoc
+                [
+                  ("_i", `Int i);
+                  ("_file", `String file);
+                  ("_loc", `String (Trace.Id.show_loc loc));
+                  ("content", `String content);
+                ] );
+          ];
+      ];
+    []
   | Call
       {
         name = func;
