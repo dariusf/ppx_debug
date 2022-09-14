@@ -24,12 +24,13 @@ module Other = Other
 
 let consume (t : Misc.t) = match t with Misc a -> a
 
-let rec insert (x : int) (xs : int list) =
+let rec insert x xs =
   match xs with
-  | [] -> [x]
+  | [] -> [(x : int)]
   | y :: ys -> if x >= y then x :: y :: ys else y :: insert x ys
 
-let rec sort xs = match xs with [] -> [] | x :: xs -> insert x (sort xs)
+let rec sort xs =
+  match xs with [] -> ([] : int list) | x :: xs -> insert x (sort xs)
 
 let shuffle d =
   let nd = List.map (fun c -> (Random.bits (), c)) d in
