@@ -110,7 +110,7 @@ type t = {
       [@to_yojson rewrites_to_yojson] [@of_yojson rewrites_of_yojson]
   treat_as_opaque : string list;
 }
-[@@deriving yojson]
+[@@deriving yojson { strict = false }]
 
 let get_file d =
   if d.randomize_filename then
@@ -236,7 +236,7 @@ let parse s =
   let x = s |> Yojson.Safe.from_string |> of_yojson in
   match x with
   | Ok y -> y
-  | Error _ -> failwith (Format.asprintf "failed to parse config")
+  | Error s -> failwith (Format.asprintf "failed to parse config: %s" s)
 (* Result.get_ok x *)
 
 (* memoize because this may be called many times and environment variables don't change *)

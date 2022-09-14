@@ -6,12 +6,13 @@
   "function_blacklist": " ",
   "light_logging": [],
   "file1": "debug.trace",
-  "randomize_filename": true,
+  "randomize_filename": false,
   "ppx_logging": true,
   "internal_log": "/tmp/ppx_debug.txt",
   "internal_tool_log": "/tmp/ppx_debug_tool.txt",
   "lambdas": true,
   "matches": true,
+  "calls": true,
   "variant": ["Stdlib"],
   "mappings": {
     "ppx_debug_runtime/trace.ml": {
