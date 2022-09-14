@@ -15,7 +15,7 @@ let rec depth t =
 
 let c f = f 1
 let sum xs = List.fold_right (fun c t -> c + t) xs 0
-let rec tail xs acc = match xs with [] -> acc | x :: xs -> tail xs (x + acc)
+let rec sum2 xs acc = match xs with [] -> acc | x :: xs -> sum2 xs (x + acc)
 let abstr_type (t : Abstr.t) = t
 let prv_type (t : Priv.t) = t
 
@@ -39,7 +39,6 @@ let shuffle d =
 
 let main () =
   Random.self_init ();
-  sort (List.init 10 (fun i -> i) |> shuffle) |> ignore;
   let z = Node [Node [Leaf 1]; Leaf 2] in
   consume (Misc 1) |> ignore;
   depth z |> ignore;
@@ -47,6 +46,7 @@ let main () =
   fib 3 |> ignore;
   c (fun x -> x + 1) |> ignore;
   sum [1; 2; 3] |> ignore;
-  tail [1; 2; 3] 0 |> ignore;
+  sum2 [1; 2; 3] 0 |> ignore;
+  sort (List.init 10 (fun i -> i) |> shuffle) |> ignore;
   abstr_type (Other.Abstr.of_int 1) |> ignore;
   prv_type (Other.Priv.of_int 1) |> ignore
