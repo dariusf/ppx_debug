@@ -586,6 +586,8 @@ let transform_bindings modname filename config rec_flag bindings =
       (fun b -> transform_binding_nonrecursively config modname filename b)
       bindings
 
+let truncate s = if String.length s > 10 then String.sub s 0 10 ^ "..." else s
+
 (** This looks for bindings in expression and structure contexts:
 
       let f x = 1
@@ -688,6 +690,9 @@ let traverse modname filename config =
         generate_value ~loc filename id
       | { pexp_desc = Pexp_match (scr, cases); _ } when config.Config.matches ->
         let loc = scr.pexp_loc in
+        let matched =
+          truncate (Format.asprintf "%a" Pprintast.expression scr)
+        in
         let scr = self#expression scr in
         let cases =
           List.map
@@ -695,15 +700,22 @@ let traverse modname filename config =
               {
                 c with
                 pc_guard = Option.map self#expression c.pc_guard;
-                pc_rhs = self#expression c.pc_rhs;
+                pc_rhs =
+                  (let rhs1 = self#expression c.pc_rhs in
+                   let loc = rhs1.pexp_loc in
+                   [%expr
+                     [%e
+                       generate_event ~loc filename "matchb" "matchb"
+                         (str ~loc matched)];
+                     [%e rhs1]]);
               })
             cases
         in
         let scr =
           A.pexp_sequence ~loc
             (generate_event ~loc filename "match"
-               (Format.asprintf "%a" Pprintast.expression scr)
-               scr)
+               (* this can be extremely large, and also contain output *)
+               matched scr)
             scr
         in
         { e with pexp_desc = Pexp_match (scr, cases) }
@@ -725,10 +737,10 @@ let traverse modname filename config =
              }
            in *)
         let before =
-          generate_event ~loc filename "bcall" "bcall" [%expr "before"]
+          generate_event ~loc filename "bcall" "bcall" [%expr "(before)"]
         in
         let after =
-          generate_event ~loc filename "acall" "acall" [%expr "after"]
+          generate_event ~loc filename "acall" "acall" [%expr "(after)"]
         in
         [%expr
           [%e before];

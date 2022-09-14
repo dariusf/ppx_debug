@@ -7,53 +7,70 @@ let fact n =
            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
              ~ppx_debug_id:{
                              file = "test.ml";
-                             id = 2;
+                             id = 4;
                              loc = ((4, 23), (4, 24))
                            } "match" "n" n);
           n
     with
-    | 0 -> 1
-    | n ->
+    | 0 ->
         ((let ppx_debug_file =
             let open Ppx_debug_runtime.Config in get_file (read ()) in
           Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
                             id = 0;
+                            loc = ((4, 35), (4, 36))
+                          } "matchb" "matchb" "n");
+         1)
+    | n ->
+        ((let ppx_debug_file =
+            let open Ppx_debug_runtime.Config in get_file (read ()) in
+          Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+            ~ppx_debug_id:{
+                            file = "test.ml";
+                            id = 3;
                             loc = ((4, 44), (4, 60))
-                          } "bcall" "bcall" "before");
+                          } "matchb" "matchb" "n");
+         (let ppx_debug_file =
+            let open Ppx_debug_runtime.Config in get_file (read ()) in
+          Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+            ~ppx_debug_id:{
+                            file = "test.ml";
+                            id = 1;
+                            loc = ((4, 44), (4, 60))
+                          } "bcall" "bcall" "(before)");
          (let result__ = n * (self (n - 1)) in
           (let ppx_debug_file =
              let open Ppx_debug_runtime.Config in get_file (read ()) in
            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
              ~ppx_debug_id:{
                              file = "test.ml";
-                             id = 1;
+                             id = 2;
                              loc = ((4, 44), (4, 60))
-                           } "acall" "acall" "after");
+                           } "acall" "acall" "(after)");
           result__)) in
   let rec aux n =
     (let ppx_debug_file =
        let open Ppx_debug_runtime.Config in get_file (read ()) in
      Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-       ~ppx_debug_id:{ file = "test.ml"; id = 3; loc = ((4, 13), (4, 60)) }
+       ~ppx_debug_id:{ file = "test.ml"; id = 5; loc = ((4, 13), (4, 60)) }
        ~func:"fact");
     ((let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 5; loc = ((4, 13), (4, 60)) }
+        ~ppx_debug_id:{ file = "test.ml"; id = 7; loc = ((4, 13), (4, 60)) }
         "n" n);
      ());
     (let _res = fact_original aux n in
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 6; loc = ((4, 13), (4, 60)) }
+        ~ppx_debug_id:{ file = "test.ml"; id = 8; loc = ((4, 13), (4, 60)) }
         "_res" _res);
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 4; loc = ((4, 13), (4, 60)) }
+        ~ppx_debug_id:{ file = "test.ml"; id = 6; loc = ((4, 13), (4, 60)) }
         ~func:"fact");
      _res) in
   aux n
@@ -66,24 +83,24 @@ let labelled ~l  () =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 7; loc = ((12, 13), (12, 22)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 9; loc = ((12, 13), (12, 22)) }
      ~func:"labelled");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 9; loc = ((12, 13), (12, 22)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 11; loc = ((12, 13), (12, 22)) }
       "l" l);
    ());
   (let _res = labelled_original ~l () in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 10; loc = ((12, 13), (12, 22)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 12; loc = ((12, 13), (12, 22)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 8; loc = ((12, 13), (12, 22)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 10; loc = ((12, 13), (12, 22)) }
       ~func:"labelled");
    _res)
 let optional ?(l= 1)  () =
@@ -91,24 +108,24 @@ let optional ?(l= 1)  () =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 11; loc = ((13, 13), (13, 28)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 13; loc = ((13, 13), (13, 28)) }
      ~func:"optional");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 13; loc = ((13, 13), (13, 28)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 15; loc = ((13, 13), (13, 28)) }
       "l" l);
    ());
   (let _res = optional_original ~l () in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 14; loc = ((13, 13), (13, 28)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 16; loc = ((13, 13), (13, 28)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 12; loc = ((13, 13), (13, 28)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 14; loc = ((13, 13), (13, 28)) }
       ~func:"optional");
    _res)
 let optional_opt ?l  () =
@@ -116,24 +133,24 @@ let optional_opt ?l  () =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 15; loc = ((14, 17), (14, 26)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 17; loc = ((14, 17), (14, 26)) }
      ~func:"optional_opt");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 17; loc = ((14, 17), (14, 26)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 19; loc = ((14, 17), (14, 26)) }
       "l" l);
    ());
   (let _res = optional_opt_original ?l () in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 18; loc = ((14, 17), (14, 26)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 20; loc = ((14, 17), (14, 26)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 16; loc = ((14, 17), (14, 26)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 18; loc = ((14, 17), (14, 26)) }
       ~func:"optional_opt");
    _res)
 let succ : int -> int =
@@ -144,40 +161,40 @@ let succ : int -> int =
        Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
          ~ppx_debug_id:{
                          file = "test.ml";
-                         id = 19;
+                         id = 21;
                          loc = ((15, 33), (15, 38))
-                       } "bcall" "bcall" "before");
+                       } "bcall" "bcall" "(before)");
       (let result__ = n + 1 in
        (let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 20;
+                          id = 22;
                           loc = ((15, 33), (15, 38))
-                        } "acall" "acall" "after");
+                        } "acall" "acall" "(after)");
        result__) in
     (let ppx_debug_file =
        let open Ppx_debug_runtime.Config in get_file (read ()) in
      Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-       ~ppx_debug_id:{ file = "test.ml"; id = 21; loc = ((15, 4), (15, 38)) }
+       ~ppx_debug_id:{ file = "test.ml"; id = 23; loc = ((15, 4), (15, 38)) }
        ~func:"succ");
     ((let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 23; loc = ((15, 4), (15, 38))
+        ~ppx_debug_id:{ file = "test.ml"; id = 25; loc = ((15, 4), (15, 38))
                       } "n" n);
      ());
     (let _res = succ_original n in
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 24; loc = ((15, 4), (15, 38))
+        ~ppx_debug_id:{ file = "test.ml"; id = 26; loc = ((15, 4), (15, 38))
                       } "_res" _res);
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 22; loc = ((15, 4), (15, 38))
+        ~ppx_debug_id:{ file = "test.ml"; id = 24; loc = ((15, 4), (15, 38))
                       } ~func:"succ");
      _res)
 let rec ping : int -> int =
@@ -188,43 +205,60 @@ let rec ping : int -> int =
              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
-                               id = 27;
+                               id = 31;
                                loc = ((17, 43), (17, 44))
                              } "match" "n" n);
             n
       with
-      | 0 -> 1
+      | 0 ->
+          ((let ppx_debug_file =
+              let open Ppx_debug_runtime.Config in get_file (read ()) in
+            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+              ~ppx_debug_id:{
+                              file = "test.ml";
+                              id = 27;
+                              loc = ((17, 55), (17, 56))
+                            } "matchb" "matchb" "n");
+           1)
       | _ ->
           ((let ppx_debug_file =
               let open Ppx_debug_runtime.Config in get_file (read ()) in
             Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 25;
+                              id = 30;
                               loc = ((17, 64), (17, 76))
-                            } "bcall" "bcall" "before");
+                            } "matchb" "matchb" "n");
+           (let ppx_debug_file =
+              let open Ppx_debug_runtime.Config in get_file (read ()) in
+            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+              ~ppx_debug_id:{
+                              file = "test.ml";
+                              id = 28;
+                              loc = ((17, 64), (17, 76))
+                            } "bcall" "bcall" "(before)");
            (let result__ = pong (n - 1) in
             (let ppx_debug_file =
                let open Ppx_debug_runtime.Config in get_file (read ()) in
              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
-                               id = 26;
+                               id = 29;
                                loc = ((17, 64), (17, 76))
-                             } "acall" "acall" "after");
+                             } "acall" "acall" "(after)");
             result__)) in
     let rec aux n =
       (let ppx_debug_file =
          let open Ppx_debug_runtime.Config in get_file (read ()) in
        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-         ~ppx_debug_id:{ file = "test.ml"; id = 31; loc = ((17, 8), (17, 76))
+         ~ppx_debug_id:{ file = "test.ml"; id = 37; loc = ((17, 8), (17, 76))
                        } ~func:"ping");
       ((let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 33;
+                          id = 39;
                           loc = ((17, 8), (17, 76))
                         } "n" n);
        ());
@@ -234,7 +268,7 @@ let rec ping : int -> int =
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 34;
+                          id = 40;
                           loc = ((17, 8), (17, 76))
                         } "_res" _res);
        (let ppx_debug_file =
@@ -242,7 +276,7 @@ let rec ping : int -> int =
         Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 32;
+                          id = 38;
                           loc = ((17, 8), (17, 76))
                         } ~func:"ping");
        _res) in
@@ -255,43 +289,60 @@ and pong : int -> int =
              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
-                               id = 30;
+                               id = 36;
                                loc = ((18, 39), (18, 40))
                              } "match" "n" n);
             n
       with
-      | 0 -> 1
+      | 0 ->
+          ((let ppx_debug_file =
+              let open Ppx_debug_runtime.Config in get_file (read ()) in
+            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+              ~ppx_debug_id:{
+                              file = "test.ml";
+                              id = 32;
+                              loc = ((18, 51), (18, 52))
+                            } "matchb" "matchb" "n");
+           1)
       | _ ->
           ((let ppx_debug_file =
               let open Ppx_debug_runtime.Config in get_file (read ()) in
             Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 28;
+                              id = 35;
                               loc = ((18, 60), (18, 72))
-                            } "bcall" "bcall" "before");
+                            } "matchb" "matchb" "n");
+           (let ppx_debug_file =
+              let open Ppx_debug_runtime.Config in get_file (read ()) in
+            Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+              ~ppx_debug_id:{
+                              file = "test.ml";
+                              id = 33;
+                              loc = ((18, 60), (18, 72))
+                            } "bcall" "bcall" "(before)");
            (let result__ = ping (n - 1) in
             (let ppx_debug_file =
                let open Ppx_debug_runtime.Config in get_file (read ()) in
              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
-                               id = 29;
+                               id = 34;
                                loc = ((18, 60), (18, 72))
-                             } "acall" "acall" "after");
+                             } "acall" "acall" "(after)");
             result__)) in
     let rec aux n =
       (let ppx_debug_file =
          let open Ppx_debug_runtime.Config in get_file (read ()) in
        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-         ~ppx_debug_id:{ file = "test.ml"; id = 35; loc = ((18, 4), (18, 72))
+         ~ppx_debug_id:{ file = "test.ml"; id = 41; loc = ((18, 4), (18, 72))
                        } ~func:"pong");
       ((let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 37;
+                          id = 43;
                           loc = ((18, 4), (18, 72))
                         } "n" n);
        ());
@@ -301,7 +352,7 @@ and pong : int -> int =
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 38;
+                          id = 44;
                           loc = ((18, 4), (18, 72))
                         } "_res" _res);
        (let ppx_debug_file =
@@ -309,7 +360,7 @@ and pong : int -> int =
         Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 36;
+                          id = 42;
                           loc = ((18, 4), (18, 72))
                         } ~func:"pong");
        _res) in
@@ -323,30 +374,47 @@ let ext =
                Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
-                                 id = 41;
+                                 id = 49;
                                  loc = ((22, 18), (22, 19))
                                } "match" "n" n);
               n
         with
-        | 0 -> 1
+        | 0 ->
+            ((let ppx_debug_file =
+                let open Ppx_debug_runtime.Config in get_file (read ()) in
+              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+                ~ppx_debug_id:{
+                                file = "test.ml";
+                                id = 45;
+                                loc = ((22, 30), (22, 31))
+                              } "matchb" "matchb" "n");
+             1)
         | _ ->
             ((let ppx_debug_file =
                 let open Ppx_debug_runtime.Config in get_file (read ()) in
               Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                 ~ppx_debug_id:{
                                 file = "test.ml";
-                                id = 39;
+                                id = 48;
                                 loc = ((22, 39), (22, 52))
-                              } "bcall" "bcall" "before");
+                              } "matchb" "matchb" "n");
+             (let ppx_debug_file =
+                let open Ppx_debug_runtime.Config in get_file (read ()) in
+              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+                ~ppx_debug_id:{
+                                file = "test.ml";
+                                id = 46;
+                                loc = ((22, 39), (22, 52))
+                              } "bcall" "bcall" "(before)");
              (let result__ = pong1 (n - 1) in
               (let ppx_debug_file =
                  let open Ppx_debug_runtime.Config in get_file (read ()) in
                Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
-                                 id = 40;
+                                 id = 47;
                                  loc = ((22, 39), (22, 52))
-                               } "acall" "acall" "after");
+                               } "acall" "acall" "(after)");
               result__)) in
       let rec aux n =
         (let ppx_debug_file =
@@ -354,7 +422,7 @@ let ext =
          Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
            ~ppx_debug_id:{
                            file = "test.ml";
-                           id = 47;
+                           id = 57;
                            loc = ((21, 10), (22, 52))
                          } ~func:"ping1");
         ((let ppx_debug_file =
@@ -362,7 +430,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 49;
+                            id = 59;
                             loc = ((21, 10), (22, 52))
                           } "n" n);
          ());
@@ -372,7 +440,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 50;
+                            id = 60;
                             loc = ((21, 10), (22, 52))
                           } "_res" _res);
          (let ppx_debug_file =
@@ -380,7 +448,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 48;
+                            id = 58;
                             loc = ((21, 10), (22, 52))
                           } ~func:"ping1");
          _res) in
@@ -393,30 +461,47 @@ let ext =
                Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
-                                 id = 44;
+                                 id = 54;
                                  loc = ((24, 18), (24, 19))
                                } "match" "n" n);
               n
         with
-        | 0 -> 1
+        | 0 ->
+            ((let ppx_debug_file =
+                let open Ppx_debug_runtime.Config in get_file (read ()) in
+              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+                ~ppx_debug_id:{
+                                file = "test.ml";
+                                id = 50;
+                                loc = ((24, 30), (24, 31))
+                              } "matchb" "matchb" "n");
+             1)
         | _ ->
             ((let ppx_debug_file =
                 let open Ppx_debug_runtime.Config in get_file (read ()) in
               Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                 ~ppx_debug_id:{
                                 file = "test.ml";
-                                id = 42;
+                                id = 53;
                                 loc = ((24, 39), (24, 52))
-                              } "bcall" "bcall" "before");
+                              } "matchb" "matchb" "n");
+             (let ppx_debug_file =
+                let open Ppx_debug_runtime.Config in get_file (read ()) in
+              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
+                ~ppx_debug_id:{
+                                file = "test.ml";
+                                id = 51;
+                                loc = ((24, 39), (24, 52))
+                              } "bcall" "bcall" "(before)");
              (let result__ = ping1 (n - 1) in
               (let ppx_debug_file =
                  let open Ppx_debug_runtime.Config in get_file (read ()) in
                Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
-                                 id = 43;
+                                 id = 52;
                                  loc = ((24, 39), (24, 52))
-                               } "acall" "acall" "after");
+                               } "acall" "acall" "(after)");
               result__)) in
       let rec aux n =
         (let ppx_debug_file =
@@ -424,7 +509,7 @@ let ext =
          Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
            ~ppx_debug_id:{
                            file = "test.ml";
-                           id = 51;
+                           id = 61;
                            loc = ((23, 6), (24, 52))
                          } ~func:"pong1");
         ((let ppx_debug_file =
@@ -432,7 +517,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 53;
+                            id = 63;
                             loc = ((23, 6), (24, 52))
                           } "n" n);
          ());
@@ -442,7 +527,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 54;
+                            id = 64;
                             loc = ((23, 6), (24, 52))
                           } "_res" _res);
          (let ppx_debug_file =
@@ -450,7 +535,7 @@ let ext =
           Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 52;
+                            id = 62;
                             loc = ((23, 6), (24, 52))
                           } ~func:"pong1");
          _res) in
@@ -458,14 +543,14 @@ let ext =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 45; loc = ((26, 2), (26, 9)) }
-     "bcall" "bcall" "before");
+     ~ppx_debug_id:{ file = "test.ml"; id = 55; loc = ((26, 2), (26, 9)) }
+     "bcall" "bcall" "(before)");
   (let result__ = ping1 2 in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 46; loc = ((26, 2), (26, 9)) }
-      "acall" "acall" "after");
+      ~ppx_debug_id:{ file = "test.ml"; id = 56; loc = ((26, 2), (26, 9)) }
+      "acall" "acall" "(after)");
    result__)
 let a f =
   let a_original f =
@@ -478,7 +563,7 @@ let a f =
            Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
              ~ppx_debug_id:{
                              file = "test.ml";
-                             id = 57;
+                             id = 67;
                              loc = ((30, 10), (30, 15))
                            } ~func:"c");
           ((let ppx_debug_file =
@@ -486,7 +571,7 @@ let a f =
             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 59;
+                              id = 69;
                               loc = ((30, 10), (30, 15))
                             } "f" f);
            ());
@@ -496,7 +581,7 @@ let a f =
             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 60;
+                              id = 70;
                               loc = ((30, 10), (30, 15))
                             } "_res" _res);
            (let ppx_debug_file =
@@ -504,7 +589,7 @@ let a f =
             Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 58;
+                              id = 68;
                               loc = ((30, 10), (30, 15))
                             } ~func:"c");
            _res) in
@@ -513,102 +598,102 @@ let a f =
          Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
            ~ppx_debug_id:{
                            file = "test.ml";
-                           id = 55;
+                           id = 65;
                            loc = ((31, 4), (31, 7))
-                         } "bcall" "bcall" "before");
+                         } "bcall" "bcall" "(before)");
         (let result__ = c f in
          (let ppx_debug_file =
             let open Ppx_debug_runtime.Config in get_file (read ()) in
           Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 56;
+                            id = 66;
                             loc = ((31, 4), (31, 7))
-                          } "acall" "acall" "after");
+                          } "acall" "acall" "(after)");
          result__) in
       (let ppx_debug_file =
          let open Ppx_debug_runtime.Config in get_file (read ()) in
        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-         ~ppx_debug_id:{ file = "test.ml"; id = 63; loc = ((29, 8), (31, 7))
+         ~ppx_debug_id:{ file = "test.ml"; id = 73; loc = ((29, 8), (31, 7))
                        } ~func:"b");
       ((let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-          ~ppx_debug_id:{ file = "test.ml"; id = 65; loc = ((29, 8), (31, 7))
+          ~ppx_debug_id:{ file = "test.ml"; id = 75; loc = ((29, 8), (31, 7))
                         } "f" f);
        ());
       (let _res = b_original f in
        (let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-          ~ppx_debug_id:{ file = "test.ml"; id = 66; loc = ((29, 8), (31, 7))
+          ~ppx_debug_id:{ file = "test.ml"; id = 76; loc = ((29, 8), (31, 7))
                         } "_res" _res);
        (let ppx_debug_file =
           let open Ppx_debug_runtime.Config in get_file (read ()) in
         Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-          ~ppx_debug_id:{ file = "test.ml"; id = 64; loc = ((29, 8), (31, 7))
+          ~ppx_debug_id:{ file = "test.ml"; id = 74; loc = ((29, 8), (31, 7))
                         } ~func:"b");
        _res) in
     (let ppx_debug_file =
        let open Ppx_debug_runtime.Config in get_file (read ()) in
      Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-       ~ppx_debug_id:{ file = "test.ml"; id = 61; loc = ((33, 2), (33, 5)) }
-       "bcall" "bcall" "before");
+       ~ppx_debug_id:{ file = "test.ml"; id = 71; loc = ((33, 2), (33, 5)) }
+       "bcall" "bcall" "(before)");
     (let result__ = b f in
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 62; loc = ((33, 2), (33, 5)) }
-        "acall" "acall" "after");
+        ~ppx_debug_id:{ file = "test.ml"; id = 72; loc = ((33, 2), (33, 5)) }
+        "acall" "acall" "(after)");
      result__) in
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 67; loc = ((28, 6), (33, 5)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 77; loc = ((28, 6), (33, 5)) }
      ~func:"a");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 69; loc = ((28, 6), (33, 5)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 79; loc = ((28, 6), (33, 5)) }
       "f" f);
    ());
   (let _res = a_original f in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 70; loc = ((28, 6), (33, 5)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 80; loc = ((28, 6), (33, 5)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 68; loc = ((28, 6), (33, 5)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 78; loc = ((28, 6), (33, 5)) }
       ~func:"a");
    _res)
 let sum =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 71; loc = ((35, 10), (35, 56)) }
-     "bcall" "bcall" "before");
+     ~ppx_debug_id:{ file = "test.ml"; id = 81; loc = ((35, 10), (35, 56)) }
+     "bcall" "bcall" "(before)");
   (let result__ = List.fold_right (fun c -> fun t -> c + t) [1; 2; 3] 0 in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 72; loc = ((35, 10), (35, 56)) }
-      "acall" "acall" "after");
+      ~ppx_debug_id:{ file = "test.ml"; id = 82; loc = ((35, 10), (35, 56)) }
+      "acall" "acall" "(after)");
    result__)
 let z =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 73; loc = ((38, 2), (42, 13)) }
-     "bcall" "bcall" "before");
+     ~ppx_debug_id:{ file = "test.ml"; id = 83; loc = ((38, 2), (42, 13)) }
+     "bcall" "bcall" "(before)");
   (let result__ = List.map (fun a -> let f x = x in f a) [1; 2; 3] in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 74; loc = ((38, 2), (42, 13)) }
-      "acall" "acall" "after");
+      ~ppx_debug_id:{ file = "test.ml"; id = 84; loc = ((38, 2), (42, 13)) }
+      "acall" "acall" "(after)");
    result__)
 let a () =
   let a_original () =
@@ -616,24 +701,24 @@ let a () =
     let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 75; loc = ((46, 2), (46, 12)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 85; loc = ((46, 2), (46, 12)) }
       "x" x in
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 76; loc = ((44, 6), (46, 12)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 86; loc = ((44, 6), (46, 12)) }
      ~func:"a");
   ();
   (let _res = a_original () in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 78; loc = ((44, 6), (46, 12)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 88; loc = ((44, 6), (46, 12)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 77; loc = ((44, 6), (46, 12)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 87; loc = ((44, 6), (46, 12)) }
       ~func:"a");
    _res)
 let lambda_unhandled () =
@@ -641,31 +726,31 @@ let lambda_unhandled () =
     (let ppx_debug_file =
        let open Ppx_debug_runtime.Config in get_file (read ()) in
      Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-       ~ppx_debug_id:{ file = "test.ml"; id = 79; loc = ((48, 26), (48, 65))
-                     } "bcall" "bcall" "before");
+       ~ppx_debug_id:{ file = "test.ml"; id = 89; loc = ((48, 26), (48, 65))
+                     } "bcall" "bcall" "(before)");
     (let result__ = List.map (fun (a, b) -> a + b) [(1, 2)] in
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 80; loc = ((48, 26), (48, 65))
-                      } "acall" "acall" "after");
+        ~ppx_debug_id:{ file = "test.ml"; id = 90; loc = ((48, 26), (48, 65))
+                      } "acall" "acall" "(after)");
      result__) in
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 81; loc = ((48, 21), (48, 65)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 91; loc = ((48, 21), (48, 65)) }
      ~func:"lambda_unhandled");
   ();
   (let _res = lambda_unhandled_original () in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 83; loc = ((48, 21), (48, 65)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 93; loc = ((48, 21), (48, 65)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 82; loc = ((48, 21), (48, 65)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 92; loc = ((48, 21), (48, 65)) }
       ~func:"lambda_unhandled");
    _res)
 let keep_type_annotations t =
@@ -673,24 +758,24 @@ let keep_type_annotations t =
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 84; loc = ((49, 26), (49, 39)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 94; loc = ((49, 26), (49, 39)) }
      ~func:"keep_type_annotations");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 86; loc = ((49, 26), (49, 39)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 96; loc = ((49, 26), (49, 39)) }
       "t" t);
    ());
   (let _res = keep_type_annotations_original t in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 87; loc = ((49, 26), (49, 39)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 97; loc = ((49, 26), (49, 39)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 85; loc = ((49, 26), (49, 39)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 95; loc = ((49, 26), (49, 39)) }
       ~func:"keep_type_annotations");
    _res)
 let obj n =
@@ -704,25 +789,25 @@ let obj n =
              Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
-                               id = 88;
+                               id = 98;
                                loc = ((54, 19), (54, 24))
-                             } "bcall" "bcall" "before");
+                             } "bcall" "bcall" "(before)");
             (let result__ = x + 1 in
              (let ppx_debug_file =
                 let open Ppx_debug_runtime.Config in get_file (read ()) in
               Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                 ~ppx_debug_id:{
                                 file = "test.ml";
-                                id = 89;
+                                id = 99;
                                 loc = ((54, 19), (54, 24))
-                              } "acall" "acall" "after");
+                              } "acall" "acall" "(after)");
              result__) in
           (let ppx_debug_file =
              let open Ppx_debug_runtime.Config in get_file (read ()) in
            Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
              ~ppx_debug_id:{
                              file = "test.ml";
-                             id = 90;
+                             id = 100;
                              loc = ((54, 15), (54, 24))
                            } ~func:"f");
           ((let ppx_debug_file =
@@ -730,7 +815,7 @@ let obj n =
             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 92;
+                              id = 102;
                               loc = ((54, 15), (54, 24))
                             } "x" x);
            ());
@@ -740,7 +825,7 @@ let obj n =
             Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 93;
+                              id = 103;
                               loc = ((54, 15), (54, 24))
                             } "_res" _res);
            (let ppx_debug_file =
@@ -748,7 +833,7 @@ let obj n =
             Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
               ~ppx_debug_id:{
                               file = "test.ml";
-                              id = 91;
+                              id = 101;
                               loc = ((54, 15), (54, 24))
                             } ~func:"f");
            _res)
@@ -756,36 +841,36 @@ let obj n =
     (let ppx_debug_file =
        let open Ppx_debug_runtime.Config in get_file (read ()) in
      Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-       ~ppx_debug_id:{ file = "test.ml"; id = 94; loc = ((57, 2), (57, 13)) }
-       "bcall" "bcall" "before");
+       ~ppx_debug_id:{ file = "test.ml"; id = 104; loc = ((57, 2), (57, 13))
+                     } "bcall" "bcall" "(before)");
     (let result__ = a#f (2 + n) in
      (let ppx_debug_file =
         let open Ppx_debug_runtime.Config in get_file (read ()) in
       Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
-        ~ppx_debug_id:{ file = "test.ml"; id = 95; loc = ((57, 2), (57, 13))
-                      } "acall" "acall" "after");
+        ~ppx_debug_id:{ file = "test.ml"; id = 105; loc = ((57, 2), (57, 13))
+                      } "acall" "acall" "(after)");
      result__) in
   (let ppx_debug_file =
      let open Ppx_debug_runtime.Config in get_file (read ()) in
    Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
-     ~ppx_debug_id:{ file = "test.ml"; id = 96; loc = ((51, 8), (57, 13)) }
+     ~ppx_debug_id:{ file = "test.ml"; id = 106; loc = ((51, 8), (57, 13)) }
      ~func:"obj");
   ((let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 98; loc = ((51, 8), (57, 13)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 108; loc = ((51, 8), (57, 13)) }
       "n" n);
    ());
   (let _res = obj_original n in
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 99; loc = ((51, 8), (57, 13)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 109; loc = ((51, 8), (57, 13)) }
       "_res" _res);
    (let ppx_debug_file =
       let open Ppx_debug_runtime.Config in get_file (read ()) in
     Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
-      ~ppx_debug_id:{ file = "test.ml"; id = 97; loc = ((51, 8), (57, 13)) }
+      ~ppx_debug_id:{ file = "test.ml"; id = 107; loc = ((51, 8), (57, 13)) }
       ~func:"obj");
    _res)
 class virtual clz =
@@ -797,25 +882,25 @@ class virtual clz =
          Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
            ~ppx_debug_id:{
                            file = "test.ml";
-                           id = 100;
+                           id = 110;
                            loc = ((61, 17), (61, 22))
-                         } "bcall" "bcall" "before");
+                         } "bcall" "bcall" "(before)");
         (let result__ = x * 2 in
          (let ppx_debug_file =
             let open Ppx_debug_runtime.Config in get_file (read ()) in
           Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
             ~ppx_debug_id:{
                             file = "test.ml";
-                            id = 101;
+                            id = 111;
                             loc = ((61, 17), (61, 22))
-                          } "acall" "acall" "after");
+                          } "acall" "acall" "(after)");
          result__) in
       (let ppx_debug_file =
          let open Ppx_debug_runtime.Config in get_file (read ()) in
        Ppx_debug_runtime.Trace.emit_start ~ppx_debug_file
          ~ppx_debug_id:{
                          file = "test.ml";
-                         id = 102;
+                         id = 112;
                          loc = ((61, 13), (61, 22))
                        } ~func:"g");
       ((let ppx_debug_file =
@@ -823,7 +908,7 @@ class virtual clz =
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 104;
+                          id = 114;
                           loc = ((61, 13), (61, 22))
                         } "x" x);
        ());
@@ -833,7 +918,7 @@ class virtual clz =
         Ppx_debug_runtime.Trace.emit_argument ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 105;
+                          id = 115;
                           loc = ((61, 13), (61, 22))
                         } "_res" _res);
        (let ppx_debug_file =
@@ -841,7 +926,7 @@ class virtual clz =
         Ppx_debug_runtime.Trace.emit_end ~ppx_debug_file
           ~ppx_debug_id:{
                           file = "test.ml";
-                          id = 103;
+                          id = 113;
                           loc = ((61, 13), (61, 22))
                         } ~func:"g");
        _res)
