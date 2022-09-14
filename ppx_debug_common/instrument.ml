@@ -686,9 +686,9 @@ let traverse modname filename config =
        _;
       } ->
         generate_value ~loc filename id
-      | { pexp_desc = Pexp_match (e, cases); pexp_loc = loc; _ }
+      | { pexp_desc = Pexp_match (scr, cases); pexp_loc = loc; _ }
         when config.Config.matches ->
-        let e = self#expression e in
+        let scr = self#expression scr in
         let cases =
           List.map
             (fun c ->
@@ -699,14 +699,14 @@ let traverse modname filename config =
               })
             cases
         in
-        let e =
+        let scr =
           A.pexp_sequence ~loc
             (generate_event ~loc filename "match"
-               (Format.asprintf "%a" Pprintast.expression e)
-               e)
-            e
+               (Format.asprintf "%a" Pprintast.expression scr)
+               scr)
+            scr
         in
-        { e with pexp_desc = Pexp_match (e, cases) }
+        { e with pexp_desc = Pexp_match (scr, cases) }
       | { pexp_desc = Pexp_fun _; _ } when config.Config.lambdas ->
         let func = normalize_fn e in
         (* TODO name more uniquely *)
