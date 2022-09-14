@@ -30,7 +30,7 @@ module Id = struct
 end
 
 (* really simple internal trace format. this is written in binary mode (via the emit_* functions, which marshal ocaml values) and read together with type metadata to unmarshal values (producing text) *)
-type event =
+type 'a eventx =
   | FrameStart of {
       time : int;
       id : Id.t;
@@ -40,19 +40,19 @@ type event =
       time : int;
       id : Id.t;
       name : string;
-      content : string;
+      content : 'a;
     }
   | Argument of {
       time : int;
       id : Id.t;
       name : string;
-      content : string;
+      content : 'a;
     }
   | Match of {
       time : int;
       id : Id.t;
       name : string;
-      content : string;
+      content : 'a;
     }
   | FrameEnd of {
       time : int;
@@ -61,6 +61,7 @@ type event =
     }
 [@@deriving show { with_path = false }]
 
+type event = string eventx [@@deriving show { with_path = false }]
 type t = event list
 
 let to_file filename f =
@@ -229,23 +230,33 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
   node i toplevel Id.dummy [] (collect_trees trace) 0 0
 
 (* a tree representation of traces that makes many operations easier *)
-type call =
+type 'a callx =
   | Event of {
       i : int;
       name : string;
-      content : string;
+      content : 'a;
       time : int;
       id : Id.t;
     }
   | Call of {
       i : int;
       name : string;
-      args : (string * string) list;
-      calls : call list;
+      args : (string * 'a) list;
+      calls : 'a callx list;
       start_time : int;
       end_time : int;
       id : Id.t;
     }
+    (* TODO remove this later as it can blow up *)
+[@@deriving show { with_path = false }]
+
+type call = string callx [@@deriving show { with_path = false }]
+
+(* let show_call c = "" *)
+(* match c with
+   | Event
+   | Call *)
+
 (* will blow up when printed due to the same subtrees appearing multiple times *)
 (* [@@deriving yojson] *)
 

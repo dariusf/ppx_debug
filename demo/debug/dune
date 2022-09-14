@@ -2,6 +2,16 @@
 (executable
  (name debug)
  (libraries lib)
+ (modules debug)
+ (preprocessor_deps (source_tree ../lib))
+ (preprocess (pps ppx_debug_tool)))
+
+(executable
+ (name debug1)
+ (libraries lib ppx_debug_interact)
+ (modules debug1)
+ (modes native byte)
+ (link_flags -linkall)
  (preprocessor_deps (source_tree ../lib))
  (preprocess (pps ppx_debug_tool)))
 

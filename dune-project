@@ -37,3 +37,11 @@
  (version 0.1)
  (synopsis "A ppx for debugging")
  (description "Debug away"))
+
+(package
+ (name ppx_debug_interact)
+ (version 0.1)
+ (synopsis "A ppx for debugging")
+ (description "Debug away")
+ (depends
+   (ppx_debug_runtime (= 0.1))))

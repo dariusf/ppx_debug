@@ -1,0 +1,12 @@
+(library
+ (name ppx_debug_interact)
+ (public_name ppx_debug_interact)
+ (libraries compiler-libs.toplevel linenoise)
+ ; (inline_tests)
+ ; (preprocess (pps ppx_deriving.show ppx_deriving_yojson ppx_expect))
+ )
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

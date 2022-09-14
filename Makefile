@@ -11,6 +11,10 @@ all:
 	dune exec --display=short ./demo/debug/debug.exe -- debug.trace -f debugger > debugger.json
 	ls chrome.json debugger.json debug.trace
 
+.PHONY: debug
+debug:
+	dune exec --display=short ./demo/debug/debug.bc
+
 .PHONY: w
 w:
 	dune exec --watch --display=short --terminal-persistence=clear-on-rebuild ./demo/debug/debug.exe

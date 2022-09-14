@@ -536,20 +536,15 @@ let walk_build_dir () =
 
 open Ppxlib
 
-let handle_si ~loc ~path:_ _payload =
-  (* TODO use payload for name of identifier *)
-  (* TODO go up until git, since this will reside in dune build dir *)
-  (* let config = Util.read_config () in
-     if config.debug then
-       (traverse ())#structure_item str
-     else
-       str *)
-  (* str *)
-  (* [ *)
-  walk_build_dir ();
+let g_read_and_print_value loc =
   let cases =
     A.pexp_match ~loc [%expr id]
       ((!id_type_mappings
+       (* |> List.uniq
+            ~eq:(fun
+                  (Ppx_debug_runtime.Id.{ id = id1; _ }, _)
+                  ({ id = id2; _ }, _)
+                -> id1 = id2) *)
        |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
               (* let typ_ident = A.pexp_ident ~loc { loc; txt = Lident typ } in *)
               (* let typ_ident = A.pexp_ident ~loc { loc; txt = Lident typ } in *)
@@ -604,3 +599,249 @@ let handle_si ~loc ~path:_ _payload =
 (* Scanf.bscanf file "%s@\n%s@\n" (fun id content ->
     Format.printf "%s %s@." id
       (show_b (Marshal.from_string content 0 : b))) *)
+
+let g_load_value loc =
+  let mapping_fn =
+    let cases =
+      !id_type_mappings
+      |> List.uniq
+           ~eq:(fun
+                 (Ppx_debug_runtime.Id.{ id = id1; _ }, _)
+                 ({ id = id2; _ }, _)
+               -> id1 = id2)
+      |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
+             A.case ~lhs:(A.pint ~loc id) ~guard:None
+               ~rhs:
+                 [%expr
+                   Some
+                     (Obj.magic
+                        [%e
+                          A.pexp_ident ~loc
+                            { loc; txt = Lident (Format.asprintf "v%d" id) }])])
+    in
+    let cases =
+      cases @ [A.case ~lhs:(A.ppat_any ~loc) ~guard:None ~rhs:[%expr None]]
+    in
+    A.value_binding ~loc
+      ~pat:[%pat? mapping]
+      ~expr:[%expr fun e -> [%e A.pexp_match ~loc [%expr e] cases]]
+  in
+  let bindings =
+    (* want one variable per time point, not id *)
+    !id_type_mappings
+    |> List.uniq
+         ~eq:(fun (Ppx_debug_runtime.Id.{ id = id1; _ }, _) ({ id = id2; _ }, _)
+             -> id1 = id2)
+    |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
+           (* let show_arg =
+                match typ_info.typ with
+                | None -> [%expr Marshal.from_string _content 0]
+                | Some typ -> [%expr (Marshal.from_string _content 0 : [%t typ])]
+              in *)
+           A.value_binding ~loc
+             ~pat:
+               (A.ppat_constraint ~loc
+                  (A.ppat_var ~loc { txt = Format.asprintf "v%d" id; loc })
+                  (A.ptyp_constr ~loc
+                     { loc; txt = Lident "ref" }
+                     [
+                       A.ptyp_tuple ~loc
+                         [
+                           A.ptyp_constr ~loc { loc; txt = Lident "string" } [];
+                           A.ptyp_constr ~loc
+                             { loc; txt = Lident "list" }
+                             [
+                               typ_info.typ
+                               |> Option.get_or ~default:(A.ptyp_any ~loc);
+                             ];
+                         ];
+                     ]))
+             ~expr:
+               (A.pexp_apply ~loc [%expr ref] [(Nolabel, [%expr Obj.magic 0])])
+           (* let show_arg =
+                match typ_info.typ with
+                | None -> [%expr Marshal.from_string _content 0]
+                | Some typ ->
+                  [%expr (Marshal.from_string _content 0 : [%t typ])]
+              in
+              A.case
+                ~lhs:
+                  [%pat?
+                    Ppx_debug_runtime.Id.
+                      {
+                        file = [%p A.pstring ~loc file];
+                        id = [%p A.pint ~loc id];
+                        _;
+                      }]
+                ~guard:None
+                ~rhs:
+                  [%expr
+                    let _content = Ppx_debug_runtime.read_n _len _file in
+                    Scanf.bscanf _file "\n" ();
+
+                    Format.asprintf "%a" [%e typ_info.pp_fn] [%e show_arg]] *))
+  in
+  let cases =
+    A.pexp_match ~loc [%expr id]
+      ((!id_type_mappings
+       |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
+              let show_arg =
+                match typ_info.typ with
+                | None -> [%expr Marshal.from_string _content 0]
+                | Some typ ->
+                  [%expr (Marshal.from_string _content 0 : [%t typ])]
+              in
+              A.case
+                ~lhs:
+                  [%pat?
+                    Ppx_debug_runtime.Id.
+                      {
+                        file = [%p A.pstring ~loc file];
+                        id = [%p A.pint ~loc id];
+                        _;
+                      }]
+                ~guard:None
+                ~rhs:
+                  [%expr
+                    let _content = Ppx_debug_runtime.read_n _len _file in
+                    Scanf.bscanf _file "\n" ();
+                    Obj.magic [%e show_arg]]))
+      (* Format.asprintf "%a" [%e typ_info.pp_fn] [%e show_arg] *)
+      @ [
+          A.case
+            ~lhs:
+              (* (A.ppat_tuple ~loc [[%pat? file]; A.ppat_any ~loc; [%pat? id]]) *)
+              [%pat? Ppx_debug_runtime.Id.{ file; id; _ }]
+            ~guard:None
+            ~rhs:[%expr failwith (Format.sprintf "unknown type %s %d" file id)];
+        ])
+  in
+  (* unsure why we have to prefix file with an underscore, or the compiler thinks it's unused *)
+  let read = [%expr fun _len _file id -> [%e cases]] in
+  let run =
+    [%expr
+      let file = Scanf.Scanning.open_in_bin filename in
+      let rec loop all =
+        let typ = Scanf.bscanf file "%s@\n" (fun typ -> typ) in
+        (* print_endline typ;
+           print_endline (string_of_int (String.length typ)); *)
+        let open Ppx_debug_runtime in
+        let open Trace in
+        match typ with
+        | "start" ->
+          let id = Id.deserialize file in
+          let time = Scanf.bscanf file "%d\n" (fun t -> t) in
+          let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
+          loop (FrameStart { id; time; func } :: all)
+        | "end" ->
+          let id = Id.deserialize file in
+          let time = Scanf.bscanf file "%d\n" (fun t -> t) in
+          let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
+          loop (FrameEnd { id; time; func } :: all)
+        | "arg" | "value" | "match" ->
+          let id = Id.deserialize file in
+          let what = Scanf.bscanf file "%s@\n" (fun what -> what) in
+          let time = Scanf.bscanf file "%d\n" (fun t -> t) in
+          let len = Scanf.bscanf file "%d" (fun t -> t) in
+          let v = load_value len file id in
+          let next =
+            match typ with
+            | "arg" -> Argument { time; id; name = what; content = v }
+            | "value" -> Value { time; id; name = what; content = v }
+            | "match" -> Match { time; id; name = what; content = v }
+            | _ -> failwith "invalid"
+          in
+          loop (next :: all)
+        | "" -> List.rev all
+        | _ -> failwith ("invalid " ^ typ)
+      in
+      (* i and id don't match. read trace, convert into tree, traverse tree and generate bindings
+         doesn't work here as number of bindings is dynamic...
+            (with types using i to lookup), traverse tree to set bindings, then put bindings in the repl *)
+      let res = loop [] in
+      Scanf.Scanning.close_in file;
+      let tree = Ppx_debug_runtime.Trace.to_call_tree res in
+      let rec traverse f tree =
+        match tree with
+        | Ppx_debug_runtime.Trace.Call { i; calls; args; _ } ->
+          f tree i args;
+          List.iter (traverse f) calls
+        | Event { i; content; _ } -> f tree i [("val", content)]
+      in
+      traverse
+        (fun _t i c -> match mapping i with None -> () | Some r -> r := c)
+        tree;
+      let x = 1 in
+      let find p =
+        traverse
+          (fun t i _c ->
+            if p = i then print_endline (Ppx_debug_runtime.Trace.show_call t)
+            else ())
+          tree
+      in
+      (* Ppx_interact_runtime.interact ~read_and_print_value () *)
+      Ppx_debug_interact.(
+        interact ~unit:__MODULE__ ~loc:__POS__
+          ~values:
+            [
+              V ("x", x);
+              V ("res", res);
+              V ("tree", tree);
+              V ("find", find)
+              (* V ("v0", !v0); *)
+              (* V ("v62", !v62); *);
+            ]
+          ())]
+  in
+
+  (* let read filename = *)
+
+  (* !id_type_mappings |> List.map (); *)
+
+  (* [%stri let load_value = [%e read]] *)
+  A.pstr_value ~loc (* Nonrecursive *)
+    Recursive
+    ([A.value_binding ~loc ~pat:[%pat? load_value] ~expr:read]
+    @ bindings
+    @ [
+        mapping_fn;
+        A.value_binding ~loc
+          ~pat:[%pat? read1]
+          ~expr:[%expr fun filename -> [%e run]];
+      ])
+(* failwith "" *)
+
+(* Scanf.bscanf file "%s@\n%s@\n" (fun id content ->
+    Format.printf "%s %s@." id
+      (show_b (Marshal.from_string content 0 : b))) *)
+
+let handle_si ~loc ~path:_ payload =
+  (* TODO use payload for name of identifier *)
+  (* TODO go up until git, since this will reside in dune build dir *)
+  (* let config = Util.read_config () in
+     if config.debug then
+       (traverse ())#structure_item str
+     else
+       str *)
+  (* str *)
+  (* [ *)
+  walk_build_dir ();
+  match payload with
+  | PStr
+      [
+        {
+          pstr_desc =
+            Pstr_eval
+              ( (* { pexp_desc = Pexp_constant (Pconst_string (s, _loc, _p)); _ } *)
+                { pexp_desc = Pexp_ident { txt = Lident s; _ }; _ },
+                _attrs );
+          _;
+        };
+      ] ->
+    begin
+      match s with
+      | "read_and_print_value" -> g_read_and_print_value loc
+      | "load_value" -> g_load_value loc
+      | _ -> failwith "no such generator"
+    end
+  | _ -> failwith "invalid payload"
