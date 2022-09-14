@@ -4,12 +4,12 @@ let fact n =
   let fact_original self n =
     match (let ppx_debug_file =
              let open Ppx_debug_runtime.Config in get_file (read ()) in
-           Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+           Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
              ~ppx_debug_id:{
                              file = "test.ml";
                              id = 0;
                              loc = ((4, 17), (4, 60))
-                           } "match" n);
+                           } "match" "n" n);
           n
     with
     | 0 -> 1
@@ -149,12 +149,12 @@ let rec ping : int -> int =
     let ping_original self n =
       match (let ppx_debug_file =
                let open Ppx_debug_runtime.Config in get_file (read ()) in
-             Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+             Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
                                id = 21;
                                loc = ((17, 37), (17, 76))
-                             } "match" n);
+                             } "match" "n" n);
             n
       with
       | 0 -> 1
@@ -198,12 +198,12 @@ and pong : int -> int =
     let pong_original self n =
       match (let ppx_debug_file =
                let open Ppx_debug_runtime.Config in get_file (read ()) in
-             Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+             Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                ~ppx_debug_id:{
                                file = "test.ml";
                                id = 22;
                                loc = ((18, 33), (18, 72))
-                             } "match" n);
+                             } "match" "n" n);
             n
       with
       | 0 -> 1
@@ -248,12 +248,12 @@ let ext =
       let ping1_original self n =
         match (let ppx_debug_file =
                  let open Ppx_debug_runtime.Config in get_file (read ()) in
-               Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+               Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
                                  id = 31;
                                  loc = ((22, 12), (22, 52))
-                               } "match" n);
+                               } "match" "n" n);
               n
         with
         | 0 -> 1
@@ -300,12 +300,12 @@ let ext =
       let pong1_original self n =
         match (let ppx_debug_file =
                  let open Ppx_debug_runtime.Config in get_file (read ()) in
-               Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+               Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
                  ~ppx_debug_id:{
                                  file = "test.ml";
                                  id = 32;
                                  loc = ((24, 12), (24, 52))
-                               } "match" n);
+                               } "match" "n" n);
               n
         with
         | 0 -> 1

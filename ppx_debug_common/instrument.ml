@@ -283,10 +283,10 @@ let generate_value ~loc cu v =
       [%e A.estring ~loc v]
       [%e A.pexp_ident ~loc { loc; txt = Lident v }]]
 
-let generate_match ~loc cu name v =
+let generate_event ~loc cu typ name v =
   [%expr
     let ppx_debug_file = Ppx_debug_runtime.Config.(get_file (read ())) in
-    Ppx_debug_runtime.Trace.emit_value ~ppx_debug_file
+    Ppx_debug_runtime.Trace.emit_raw ~ppx_debug_file
       ~ppx_debug_id:
         {
           file = [%e A.estring ~loc cu];
@@ -300,7 +300,7 @@ let generate_match ~loc cu name v =
                 [%e A.eint ~loc (loc.loc_end.pos_cnum - loc.loc_end.pos_bol)] )
             );
         }
-      [%e A.estring ~loc name] [%e v]]
+      [%e A.estring ~loc typ] [%e A.estring ~loc name] [%e v]]
 
 let generate_arg ~loc cu arg =
   [%expr
@@ -700,7 +700,11 @@ let traverse modname filename config =
             cases
         in
         let e =
-          A.pexp_sequence ~loc (generate_match ~loc filename "match" e) e
+          A.pexp_sequence ~loc
+            (generate_event ~loc filename "match"
+               (Format.asprintf "%a" Pprintast.expression e)
+               e)
+            e
         in
         { e with pexp_desc = Pexp_match (e, cases) }
       | { pexp_desc = Pexp_fun _; _ } when config.Config.lambdas ->
