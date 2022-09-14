@@ -710,24 +710,25 @@ let traverse modname filename config =
       | { pexp_desc = Pexp_apply _; pexp_loc = loc; _ } when config.Config.calls
         ->
         (* TODO these aren't perfect as they may hit the beginnings/ends of lines *)
-        let bloc =
-          {
-            loc with
-            loc_end =
-              { loc.loc_start with pos_cnum = loc.loc_start.pos_cnum + 1 };
-          }
-        in
-        let aloc =
-          {
-            loc with
-            loc_start = { loc.loc_end with pos_cnum = loc.loc_end.pos_cnum - 1 };
-          }
-        in
+        (* they are also unintuitive *)
+        (* let bloc =
+             {
+               loc with
+               loc_end =
+                 { loc.loc_start with pos_cnum = loc.loc_start.pos_cnum + 1 };
+             }
+           in
+           let aloc =
+             {
+               loc with
+               loc_start = { loc.loc_end with pos_cnum = loc.loc_end.pos_cnum - 1 };
+             }
+           in *)
         let before =
-          generate_event ~loc:bloc filename "bcall" "bcall" [%expr ()]
+          generate_event ~loc filename "bcall" "bcall" [%expr "before"]
         in
         let after =
-          generate_event ~loc:aloc filename "acall" "acall" [%expr ()]
+          generate_event ~loc filename "acall" "acall" [%expr "after"]
         in
         [%expr
           [%e before];
