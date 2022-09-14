@@ -455,9 +455,12 @@ let check_should_transform_fn config fn =
   then not_transforming "%s is a printer or generated" fn;
 
   let fwl = Str.regexp config.Config.instrument_functions in
+  let fbl = Str.regexp config.Config.function_blacklist in
 
   if not (Str.string_match fwl fn 0) then
-    not_transforming "%s is not in function whitelist" fn
+    not_transforming "%s is not in function whitelist" fn;
+  if Str.string_match fbl fn 0 then
+    not_transforming "%s is not in function blacklist" fn
 
 (* match config.Config.mode with
    | All bs when List.mem ~eq:String.equal fn bs ->

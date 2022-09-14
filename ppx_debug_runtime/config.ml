@@ -84,6 +84,7 @@ type t = {
   (* control which functions/modules to log via regexes *)
   instrument_modules : string;
   instrument_functions : string;
+  function_blacklist : string;
   light_logging : (string * string) list;
   (* the file the raw trace should be written to *)
   file1 : string;
@@ -122,6 +123,7 @@ let default =
     mode = All [];
     instrument_modules = ".*";
     instrument_functions = ".*";
+    function_blacklist = " ";
     light_logging = [];
     file1 = "debug.trace";
     randomize_filename = false;

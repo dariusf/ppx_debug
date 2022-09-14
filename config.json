@@ -3,6 +3,7 @@
   "mode": ["All", []],
   "instrument_modules": ".*",
   "instrument_functions": ".*",
+  "function_blacklist": " ",
   "light_logging": [],
   "file1": "debug.trace",
   "randomize_filename": true,
