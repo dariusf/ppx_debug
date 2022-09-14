@@ -707,6 +707,33 @@ let traverse modname filename config =
             scr
         in
         { e with pexp_desc = Pexp_match (scr, cases) }
+      | { pexp_desc = Pexp_apply _; pexp_loc = loc; _ } when config.Config.calls
+        ->
+        (* TODO these aren't perfect as they may hit the beginnings/ends of lines *)
+        let bloc =
+          {
+            loc with
+            loc_end =
+              { loc.loc_start with pos_cnum = loc.loc_start.pos_cnum + 1 };
+          }
+        in
+        let aloc =
+          {
+            loc with
+            loc_start = { loc.loc_end with pos_cnum = loc.loc_end.pos_cnum - 1 };
+          }
+        in
+        let before =
+          generate_event ~loc:bloc filename "bcall" "bcall" [%expr ()]
+        in
+        let after =
+          generate_event ~loc:aloc filename "acall" "acall" [%expr ()]
+        in
+        [%expr
+          [%e before];
+          let result__ = [%e e] in
+          [%e after];
+          result__]
       | { pexp_desc = Pexp_fun _; _ } when config.Config.lambdas ->
         let func = normalize_fn e in
         (* TODO name more uniquely *)

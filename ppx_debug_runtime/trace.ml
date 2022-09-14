@@ -48,7 +48,19 @@ type 'a eventx =
       name : string;
       content : 'a;
     }
-  | Match of {
+  | MatchScrutinee of {
+      time : int;
+      id : Id.t;
+      name : string;
+      content : 'a;
+    }
+  | BeforeCall of {
+      time : int;
+      id : Id.t;
+      name : string;
+      content : 'a;
+    }
+  | AfterCall of {
       time : int;
       id : Id.t;
       name : string;
@@ -156,7 +168,7 @@ let read ~read_and_print_value filename =
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
       let func = Scanf.bscanf file "%s@\n" (fun id -> id) in
       loop (FrameEnd { id; time; func } :: all)
-    | "arg" | "value" | "match" ->
+    | "arg" | "value" | "match" | "acall" | "bcall" ->
       let id = Id.deserialize file in
       let what = Scanf.bscanf file "%s@\n" (fun what -> what) in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
@@ -166,7 +178,9 @@ let read ~read_and_print_value filename =
         match typ with
         | "arg" -> Argument { time; id; name = what; content = v }
         | "value" -> Value { time; id; name = what; content = v }
-        | "match" -> Match { time; id; name = what; content = v }
+        | "match" -> MatchScrutinee { time; id; name = what; content = v }
+        | "acall" -> AfterCall { time; id; name = what; content = v }
+        | "bcall" -> BeforeCall { time; id; name = what; content = v }
         | _ -> failwith "invalid"
       in
       loop (next :: all)
@@ -207,8 +221,10 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
           (* note that we recurse on trace, not es *)
           let tree, trace = build_tree (e :: es) in
           look_for_end trace args (tree :: res)
-        | Match { id; content; name; time } | Value { id; content; name; time }
-          ->
+        | MatchScrutinee { id; content; name; time }
+        | Value { id; content; name; time }
+        | AfterCall { id; content; name; time }
+        | BeforeCall { id; content; name; time } ->
           look_for_end es args (leaf (fresh ()) e id name content time :: res)
         | Argument { content; name; _ } ->
           look_for_end es ((name, content) :: args) res

@@ -357,7 +357,10 @@ let handle_expr modname it expr =
           _;
         },
         args )
-    when String.equal name "emit_value" || String.equal name "emit_argument" ->
+    when String.equal name "emit_value"
+         (* TODO deprecate emit_value *)
+         || String.equal name "emit_argument"
+         || String.equal name "emit_raw" ->
     let site_id =
       args
       |> List.filter_map (function
@@ -632,7 +635,7 @@ let g_load_value loc =
     |> List.uniq
          ~eq:(fun (Ppx_debug_runtime.Id.{ id = id1; _ }, _) ({ id = id2; _ }, _)
              -> id1 = id2)
-    |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
+    |> List.map (fun (Id.{ id; _ }, typ_info) ->
            (* let show_arg =
                 match typ_info.typ with
                 | None -> [%expr Marshal.from_string _content 0]

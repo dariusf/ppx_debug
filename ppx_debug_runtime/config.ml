@@ -96,6 +96,8 @@ type t = {
   lambdas : bool;
   (* whether to trace match discriminees *)
   matches : bool;
+  (* whether to trace function calls *)
+  calls : bool;
   (* what sorts of printers to generate *)
   variant : variant;
   (* mappings *)
@@ -128,6 +130,7 @@ let default =
     internal_tool_log = "/tmp/ppx_debug_tool.txt";
     lambdas = true;
     matches = true;
+    calls = true;
     variant = Stdlib;
     (* mappings = [] *)
     (* mappings = [] SMap.empty;; *)
