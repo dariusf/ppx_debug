@@ -27,7 +27,7 @@ let consume (t : Misc.t) = match t with Misc a -> a
 let rec insert x xs =
   match xs with
   | [] -> [(x : int)]
-  | y :: ys -> if x >= y then x :: y :: ys else y :: insert x ys
+  | y :: ys -> if x < y then x :: y :: ys else y :: insert x ys
 
 let rec sort xs =
   match xs with [] -> ([] : int list) | x :: xs -> insert x (sort xs)

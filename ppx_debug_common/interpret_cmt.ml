@@ -191,7 +191,16 @@ let rec create_pp_fn ~loc file qual exp_type =
              | _ -> false
              (* when String.equal (Ident.name i) "Stdlib" *)
              (* && List.mem ~eq:String.equal ident ["in_channel"] *) ->
-        log "opaque %s" (path_to_s id);
+        log "opaque %s %b %b" (path_to_s id)
+          (List.exists
+             (fun r -> Str.string_match r (path_to_s id) 0)
+             opaque_regexes)
+          (match
+             (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
+             C.SMap.find_opt (path_to_s id) mappings
+           with
+          | Some Opaque -> true
+          | _ -> false);
         [%expr fun fmt _ -> Format.fprintf fmt "<opaque>"]
       | _ ->
         (* we have to figure out where some type is defined from where it is used in order to point to the right printer. *)

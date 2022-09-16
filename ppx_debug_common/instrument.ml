@@ -722,8 +722,8 @@ let traverse modname filename config =
             scr
         in
         { e with pexp_desc = Pexp_match (scr, cases) }
-      | { pexp_desc = Pexp_apply _; pexp_loc = loc; _ } when config.Config.calls
-        ->
+      | { pexp_desc = Pexp_apply (f, args); pexp_loc = loc; _ }
+        when config.Config.calls ->
         (* TODO these aren't perfect as they may hit the beginnings/ends of lines *)
         (* they are also unintuitive *)
         (* let bloc =
@@ -744,6 +744,16 @@ let traverse modname filename config =
         in
         let after =
           generate_event ~loc filename "acall" "acall" [%expr "(after)"]
+        in
+        (* recurse *)
+        let e =
+          {
+            e with
+            pexp_desc =
+              Pexp_apply
+                ( self#expression f,
+                  List.map (fun (l, a) -> (l, self#expression a)) args );
+          }
         in
         [%expr
           [%e before];
