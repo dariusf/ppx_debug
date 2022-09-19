@@ -1,5 +1,9 @@
 let open_channels : (string * out_channel) list ref = ref []
 
+type bytestr = Bytestr of string [@@unboxed]
+
+let pp_bytestr fmt _b = Format.fprintf fmt "<bytestr>"
+
 module Id = struct
   type loc = (int * int) * (int * int)
   [@@deriving show { with_path = false }, yojson]
@@ -41,36 +45,48 @@ type 'a eventx =
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | Argument of {
       time : int;
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | MatchScrutinee of {
       time : int;
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | MatchBranch of {
       time : int;
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | BeforeCall of {
       time : int;
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | AfterCall of {
       time : int;
       id : Id.t;
       name : string;
       content : 'a;
+      unmarshal : string;
+      raw : bytestr;
     }
   | FrameEnd of {
       time : int;
@@ -157,7 +173,10 @@ let emit_value ~ppx_debug_file ~ppx_debug_id:id what v =
 let emit_match ~ppx_debug_file ~ppx_debug_id:id what v =
   emit_raw ~ppx_debug_file ~ppx_debug_id:id "match" what v
 
-let read ~read_and_print_value filename =
+let read ~print_value filename =
+  let read_n n file =
+    Bytes.init n (fun _i -> Scanf.bscanf file "%c" Fun.id) |> Bytes.to_string
+  in
   let file = Scanf.Scanning.open_in_bin filename in
   let rec loop all =
     let typ = Scanf.bscanf file "%s@\n" (fun typ -> typ) in
@@ -179,15 +198,23 @@ let read ~read_and_print_value filename =
       let what = Scanf.bscanf file "%s@\n" (fun what -> what) in
       let time = Scanf.bscanf file "%d\n" (fun t -> t) in
       let len = Scanf.bscanf file "%d" (fun t -> t) in
-      let v = read_and_print_value len file id in
+      let raw = Bytestr (read_n len file) in
+      Scanf.bscanf file "\n" ();
+      let v, unmarshal = print_value id raw in
       let next =
         match typ with
-        | "arg" -> Argument { time; id; name = what; content = v }
-        | "value" -> Value { time; id; name = what; content = v }
-        | "match" -> MatchScrutinee { time; id; name = what; content = v }
-        | "matchb" -> MatchBranch { time; id; name = what; content = v }
-        | "acall" -> AfterCall { time; id; name = what; content = v }
-        | "bcall" -> BeforeCall { time; id; name = what; content = v }
+        | "arg" ->
+          Argument { time; id; name = what; content = v; unmarshal; raw }
+        | "value" ->
+          Value { time; id; name = what; content = v; unmarshal; raw }
+        | "match" ->
+          MatchScrutinee { time; id; name = what; content = v; unmarshal; raw }
+        | "matchb" ->
+          MatchBranch { time; id; name = what; content = v; unmarshal; raw }
+        | "acall" ->
+          AfterCall { time; id; name = what; content = v; unmarshal; raw }
+        | "bcall" ->
+          BeforeCall { time; id; name = what; content = v; unmarshal; raw }
         | _ -> failwith "invalid"
       in
       loop (next :: all)
@@ -228,14 +255,15 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
           (* note that we recurse on trace, not es *)
           let tree, trace = build_tree (e :: es) in
           look_for_end trace args (tree :: res)
-        | MatchScrutinee { id; content; name; time }
-        | MatchBranch { id; content; name; time }
-        | Value { id; content; name; time }
-        | AfterCall { id; content; name; time }
-        | BeforeCall { id; content; name; time } ->
-          look_for_end es args (leaf (fresh ()) e id name content time :: res)
-        | Argument { content; name; _ } ->
-          look_for_end es ((name, content) :: args) res
+        | MatchScrutinee { id; content; name; time; unmarshal; raw }
+        | MatchBranch { id; content; name; time; unmarshal; raw }
+        | Value { id; content; name; time; unmarshal; raw }
+        | AfterCall { id; content; name; time; unmarshal; raw }
+        | BeforeCall { id; content; name; time; unmarshal; raw } ->
+          look_for_end es args
+            (leaf (fresh ()) e id name content time unmarshal raw :: res)
+        | Argument { content; name; unmarshal; raw; _ } ->
+          look_for_end es ((name, content, unmarshal, raw) :: args) res
       end
     | [] -> failwith "start without end"
     (* ([], List.rev args, List.rev res) *)
@@ -261,20 +289,24 @@ type 'a callx =
       content : 'a;
       time : int;
       id : Id.t;
+      unmarshal : string;
+      raw : bytestr; [@opaque]
     }
   | Call of {
       i : int;
       name : string;
       args : (string * 'a) list;
+      unmarshal : (string * (bytestr * string)) list;
       calls : 'a callx list;
       start_time : int;
       end_time : int;
       id : Id.t;
     }
-    (* TODO remove this later as it can blow up *)
-[@@deriving show { with_path = false }]
+(* TODO remove this later as it can blow up *)
+(* [@@deriving show { with_path = false }] *)
 
-type call = string callx [@@deriving show { with_path = false }]
+type call = string callx
+(* [@@deriving show { with_path = false }] *)
 
 (* let show_call c = "" *)
 (* match c with
@@ -287,9 +319,21 @@ type call = string callx [@@deriving show { with_path = false }]
 let to_call_tree trace =
   to_tree
     ~node:(fun i f id args trees start_time end_time ->
-      Call { i; name = f; calls = trees; args; id; start_time; end_time })
-    ~leaf:(fun i _e id name content time ->
-      Event { i; name; content; id; time })
+      let unmarshal = List.map (fun (n, _, u, r) -> (n, (r, u))) args in
+      let args = List.map (fun (n, a, _, _) -> (n, a)) args in
+      Call
+        {
+          i;
+          name = f;
+          calls = trees;
+          args;
+          id;
+          start_time;
+          end_time;
+          unmarshal;
+        })
+    ~leaf:(fun i _e id name content time unmarshal raw ->
+      Event { i; name; content; id; time; unmarshal; raw })
     trace
 
 let group_sorted f xs =
@@ -453,18 +497,38 @@ let%expect_test _ =
         name = "f";
         id = Id.dummy;
         args = [];
+        unmarshal = [];
         start_time = 0;
         end_time = 7;
         calls =
           [
-            Event { i = 1; name = "a"; content = "x"; id = Id.dummy; time = 1 };
-            Event { i = 2; name = "b"; content = "y"; id = Id.dummy; time = 2 };
+            Event
+              {
+                i = 1;
+                name = "a";
+                content = "x";
+                id = Id.dummy;
+                time = 1;
+                unmarshal = "x";
+                raw = Bytestr "x";
+              };
+            Event
+              {
+                i = 2;
+                name = "b";
+                content = "y";
+                id = Id.dummy;
+                time = 2;
+                unmarshal = "y";
+                raw = Bytestr "y";
+              };
             Call
               {
                 i = 3;
                 name = "g";
                 id = Id.dummy;
                 args = [];
+                unmarshal = [];
                 start_time = 3;
                 end_time = 5;
                 calls =
@@ -476,10 +540,21 @@ let%expect_test _ =
                         content = "z";
                         id = Id.dummy;
                         time = 4;
+                        unmarshal = "z";
+                        raw = Bytestr "z";
                       };
                   ];
               };
-            Event { i = 5; name = "d"; content = "w"; id = Id.dummy; time = 6 };
+            Event
+              {
+                i = 5;
+                name = "d";
+                content = "w";
+                id = Id.dummy;
+                time = 6;
+                unmarshal = "w";
+                raw = Bytestr "w";
+              };
           ];
       }
   in

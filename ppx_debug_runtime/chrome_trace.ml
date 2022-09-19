@@ -5,7 +5,7 @@
    there are at least two other options for writing trace data in a way that allows one of https://magic-trace.org/, https://ui.perfetto.dev/#!/, or chrome://tracing to be used; see https://github.com/ocaml/dune/pull/5618 *)
 let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
   match call with
-  | Event { time; name; content; i; id = { file; loc; _ } } ->
+  | Event { time; name; content; i; id = { file; loc; _ }; _ } ->
     ignore
       [
         `Assoc
@@ -35,6 +35,7 @@ let rec call_tree_to_chrome (call : Trace.call) : Yojson.Safe.t list =
         calls;
         i;
         id = { file; loc; _ };
+        _;
       } ->
     let start, end_ =
       match func with

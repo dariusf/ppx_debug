@@ -57,8 +57,8 @@ let linearize tree =
   let events = collect tree |> List.tl in
   `List (List.map Trace.Id.to_yojson events)
 
-let main_old ~read_and_print_value file =
-  let trace = Trace.read ~read_and_print_value file in
+let main_old ~print_value file =
+  let trace = Trace.read ~print_value file in
   if Array.length Sys.argv < 2 then print_endline "chrome"
     (* Chrome_trace.trace_to_chrome trace |> print_endline *)
   else
@@ -157,10 +157,10 @@ let act_on fmt trace =
     Chrome_trace.call_tree_to_chrome tree |> fun e ->
     `List e |> Yojson.Safe.to_string |> print_endline
 
-let main ~read_and_print_value () =
+let main ~print_value () =
   parse_args ();
   match (!input_files, !format) with
   | Some file, fmt ->
-    let trace = Trace.read ~read_and_print_value file in
+    let trace = Trace.read ~print_value file in
     act_on fmt trace
   | None, _ -> print_endline "expected a file"

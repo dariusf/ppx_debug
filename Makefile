@@ -1,6 +1,6 @@
 
 export OCAMLRUNPARAM=b
-# export PPX_DEBUG=$(shell jq -c < config.json)
+export PPX_DEBUG=$(shell jq -c < config.json)
 
 .PHONY: all
 all:
@@ -19,7 +19,7 @@ all1:
 
 .PHONY: debug
 debug:
-	dune exec --display=short ./demo/debug/debug.bc
+	dune exec --display=short ./demo/debug/debug1.bc
 
 .PHONY: w
 w:

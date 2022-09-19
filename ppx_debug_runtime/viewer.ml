@@ -67,7 +67,7 @@ let list_to_tree _i func _id _args trees _start_time _end_time =
 (* produce a rose tree suitable for traversal via zipper *)
 let to_tree =
   Trace.to_tree
-    ~leaf:(fun _i e id _name c _time -> Tree.Leaf (e, (id, c)))
+    ~leaf:(fun _i e id _name c _time _unmarshal _raw -> Tree.Leaf (e, (id, c)))
     ~node:list_to_tree
 
 let pp_pair pp_a pp_b fmt (a, b) = Format.fprintf fmt "(%a, %a)" pp_a a pp_b b
