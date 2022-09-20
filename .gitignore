@@ -3,3 +3,4 @@ _build/
 *.trace
 *.json
 debug1
+ppx_interact

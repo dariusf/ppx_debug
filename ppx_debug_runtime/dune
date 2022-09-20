@@ -1,7 +1,7 @@
 (library
  (name ppx_debug_runtime)
  (public_name ppx_debug_runtime)
- (libraries str linenoise yojson unix)
+ (libraries str linenoise yojson unix cmdliner)
  (inline_tests)
  (preprocess (pps ppx_deriving.show ppx_deriving_yojson ppx_expect)))
 

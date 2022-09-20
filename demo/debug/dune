@@ -1,18 +1,26 @@
 
 (executable
  (name debug)
- (libraries lib)
  (modules debug)
- (preprocessor_deps (source_tree ../lib))
+ (libraries lib)
+ (preprocessor_deps (env_var PPX_DEBUG) (source_tree ../lib)
+  ; for development only
+  (source_tree ../../ppx_debug)
+  (source_tree ../../ppx_debug_tool)
+  (source_tree ../../ppx_debug_common))
  (preprocess (pps ppx_debug_tool)))
 
 (executable
- (name debug1)
+ (name repl)
+ (modules repl)
  (libraries lib ppx_debug_interact)
- (modules debug1)
  (modes native byte)
  (link_flags -linkall)
- (preprocessor_deps (source_tree ../lib))
+ (preprocessor_deps (env_var PPX_DEBUG) (source_tree ../lib)
+  ; for development only
+  (source_tree ../../ppx_debug)
+  (source_tree ../../ppx_debug_tool)
+  (source_tree ../../ppx_debug_common))
  (preprocess (pps ppx_debug_tool)))
 
 (env

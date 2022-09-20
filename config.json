@@ -10,9 +10,9 @@
   "ppx_logging": true,
   "internal_log": "/tmp/ppx_debug.txt",
   "internal_tool_log": "/tmp/ppx_debug_tool.txt",
-  "lambdas": false,
-  "matches": false,
-  "calls": false,
+  "lambdas": true,
+  "matches": true,
+  "calls": true,
   "variant": ["Stdlib"],
   "mappings": {},
   "treat_as_opaque": []
