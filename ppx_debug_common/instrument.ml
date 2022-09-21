@@ -29,25 +29,20 @@ let fresh =
     r
 
 let fresh_v () = Format.sprintf "v%d" (fresh ())
-
-(* let ids = ref 0
-
-   let fresh () =
-     let r = !ids in
-     incr ids;
-     r *)
+let self_name = "_self"
+let lambda_name = "_lambda"
+let aux_fn_name = "aux__"
 
 type label = arg_label * expression option
 
-(* TODO this needs to be replaced with (or at least keep) a pat *)
-type param =
-  | Param of {
-      label : label;
-      param : string loc;
-    }
-  | Unit of { label : label }
+type param = {
+  name : string;
+  ignored : bool;
+  label : label;
+  pattern : pattern;
+  call : arg_label * expression;
+}
 
-(* lossy representation, as things like constraints are gone *)
 type func = {
   name : string;
   params : param list;
@@ -66,35 +61,64 @@ let get_fn_name pat =
     fn_name
   | _ -> not_transforming "%a is not a function pattern" Pprintast.pattern pat
 
-let lambda_name = "_lambda"
-
 let normalize_fn f : func =
   let name = lambda_name in
   let loc = match f with { pexp_loc = loc; _ } -> loc in
   let rec aux f =
     match f with
-    | {
-     pexp_desc =
-       Pexp_fun (lbl, lbl_e, { ppat_desc = desc; ppat_loc = loc; _ }, rest);
-     _;
-    } ->
+    | { pexp_desc = Pexp_fun (lbl, lbl_e, arg_pat, rest); _ } ->
+      let { ppat_desc = desc; ppat_loc = loc; _ } = arg_pat in
       let label = (lbl, lbl_e) in
       let func = aux rest in
       begin
         match desc with
-        | Ppat_var { txt = param; _ }
-        | Ppat_constraint ({ ppat_desc = Ppat_var { txt = param; _ }; _ }, _) ->
-          let param = { txt = param; loc } in
-          { func with params = Param { param; label } :: func.params }
+        | Ppat_var { txt = name; _ }
+        | Ppat_constraint ({ ppat_desc = Ppat_var { txt = name; _ }; _ }, _) ->
+          (* the usual case *)
+          let call =
+            let lab =
+              match (lbl, lbl_e) with
+              | Optional s, Some _ -> Labelled s
+              | _ -> lbl
+            in
+            (lab, A.pexp_ident ~loc { loc; txt = Lident name })
+          in
+          let param =
+            { name; label; ignored = false; pattern = arg_pat; call }
+          in
+          { func with params = param :: func.params }
         | Ppat_construct ({ txt = Lident "()"; _ }, None) ->
-          { func with params = Unit { label } :: func.params }
+          (* ignore unit *)
+          let call =
+            (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)
+          in
+          let param =
+            { name = "()"; label; ignored = true; pattern = arg_pat; call }
+          in
+          { func with params = param :: func.params }
         | Ppat_any ->
-          let param = { txt = fresh_v (); loc } in
-          { func with params = Param { param; label } :: func.params }
+          (* treat this like any other parameter, but generate a name *)
+          let name = fresh_v () in
+          let call =
+            let lab =
+              match (lbl, lbl_e) with
+              | Optional s, Some _ -> Labelled s
+              | _ -> lbl
+            in
+            (lab, A.pexp_ident ~loc { loc; txt = Lident name })
+          in
+          let param =
+            { name; label; ignored = false; pattern = arg_pat; call }
+          in
+          { func with params = param :: func.params }
         | _ -> { body = f; params = []; name; loc }
       end
-    | { pexp_desc = Pexp_constraint (e, _); _ } -> aux e
-    | _ -> { body = f; params = []; name; loc }
+    | { pexp_desc = Pexp_constraint (e, _); _ } ->
+      (* this is lossy. losing the constraint may change types *)
+      aux e
+    | _ ->
+      log "did not fully normalize non-function %a" Pprintast.expression f;
+      { body = f; params = []; name; loc }
   in
   aux f
 
@@ -103,19 +127,12 @@ let rec build_fn ({ loc; params; body; _ } as func) =
   let open Ast_helper in
   match params with
   | [] -> body
-  | p :: ps ->
-    let p', (lbl, lbl_e) =
-      match p with
-      | Param { param = v; label } -> (Pat.var v, label)
-      | Unit { label } -> (Pat.construct { txt = Lident "()"; loc } None, label)
-    in
-    Exp.fun_ ~loc lbl lbl_e p' (build_fn { func with params = ps })
+  | { label = lbl, lbl_e; pattern; _ } :: ps ->
+    Exp.fun_ ~loc lbl lbl_e pattern (build_fn { func with params = ps })
 
 let transform_fn_body f e =
   let func = normalize_fn e in
   build_fn { func with body = f func.body }
-
-let clamp l h x = max l (min h x)
 
 let has_attr name attr =
   match attr with
@@ -150,7 +167,6 @@ let extract_binding_info b =
   let func = normalize_fn original_rhs in
   { func with name = fn_name }
 
-(* this repl *)
 let replace_calls find replace =
   let open Ast_helper in
   object
@@ -199,17 +215,6 @@ let app ~loc f args =
 let str ~loc s =
   let open Ast_helper in
   Exp.constant ~loc (Pconst_string (s, loc, None))
-
-let param_to_expr ~loc p =
-  let open Ast_helper in
-  match p with
-  | Unit _ -> Exp.construct ~loc { txt = Lident "()"; loc } None
-  | Param { param; _ } -> Exp.ident ~loc { txt = Lident param.txt; loc }
-
-let param_to_str p =
-  match p with Unit _ -> str "()" | Param { param; _ } -> str param.txt
-
-let show_param p = match p with `Unit -> "()" | `Param x -> x
 
 let rec show_longident l =
   match l with
@@ -367,10 +372,15 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
   let stop = generate_end ~loc filename func.name in
   let print_params =
     func.params
-    |> List.filter_map (function
-         | Param { param = { txt = s; _ }; _ } ->
-           Some (generate_arg ~loc filename s)
-         | Unit _ -> None)
+    |> List.filter_map (fun { name; ignored; _ } ->
+           if ignored then None
+           else Some (generate_arg ~loc filename name)
+             (* match ignored with
+                | true -> None
+                | false ->
+                , Param { param = { txt = s; _ }; _ } ->
+                  Some ()
+                | Unit _ -> None *))
   in
   let print_params =
     if
@@ -380,25 +390,10 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
           && Str.string_match (Str.regexp f) func.name 0)
         config.light_logging
     then [%expr ()]
-    else
-      (* match print_params with
-         | [] -> [%expr ()]
-         | [e] -> e
-         | f :: r ->
-           List.fold_left (fun t c -> A.pexp_sequence ~loc c t) f r *)
-      List.fold_right (A.pexp_sequence ~loc) print_params [%expr ()]
+    else List.fold_right (A.pexp_sequence ~loc) print_params [%expr ()]
   in
   let call_fn =
-    A.pexp_apply ~loc fn_expr
-      (func.params
-      |> List.map (function
-           | Param { param = { txt = s; _ }; label = lb, def } ->
-             let lab =
-               match (lb, def) with Optional s, Some _ -> Labelled s | _ -> lb
-             in
-             (lab, A.pexp_ident ~loc { loc; txt = Lident s })
-           | Unit _ ->
-             (Nolabel, A.pexp_construct ~loc { loc; txt = Lident "()" } None)))
+    A.pexp_apply ~loc fn_expr (func.params |> List.map (fun { call; _ } -> call))
   in
   let print_res =
     if
@@ -417,22 +412,6 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
     [%e print_res];
     [%e stop];
     _res]
-
-(* (app ~loc run_fn_ident
-   (List.concat
-      [
-        [[%expr __MODULE__]];
-        [str ~loc fn_name; fn_expr];
-        List.concat
-          (List.map2
-             (fun c (a, b) -> [c; a; b])
-             (params |> List.map param_to_str)
-             (List.map2
-                (fun a b -> (a, b))
-                param_printers
-                (params |> List.map param_to_expr)));
-        [result_printer];
-      ]) [@metaloc loc]) *)
 
 let check_should_transform_module config modname =
   let mwl = Str.regexp config.Config.instrument_modules in
@@ -462,13 +441,6 @@ let check_should_transform_fn config fn =
   if Str.string_match fbl fn 0 then
     not_transforming "%s is not in function blacklist" fn
 
-(* match config.Config.mode with
-   | All bs when List.mem ~eq:String.equal fn bs ->
-     not_transforming "%s is in function blacklist" fn
-   | Some bs when not (List.mem ~eq:String.equal fn bs) -> *)
-(* | Modules m when not (List.mem ~eq:String.equal modname m) -> *)
-(* | _ -> () *)
-
 let nonrecursive_rhs modname config filename func =
   let loc = func.loc in
   let open Ast_helper in
@@ -490,7 +462,6 @@ let nonrecursive_rhs modname config filename func =
   build_fn func
 
 let transform_bound_func_nonrecursively config modname filename func =
-  (* let func = extract_binding_info b in *)
   check_should_transform_fn config func.name;
   let func =
     {
@@ -500,7 +471,6 @@ let transform_bound_func_nonrecursively config modname filename func =
   in
   let new_rhs1 = nonrecursive_rhs modname config filename func in
   new_rhs1
-(* [{ b with pvb_expr = new_rhs1 }] *)
 
 let transform_binding_nonrecursively config modname filename b =
   let func = extract_binding_info b in
@@ -514,9 +484,15 @@ let transform_binding_recursively modname config filename b =
   let func = extract_binding_info b in
   check_should_transform_fn config func.name;
   let original_fn_body, loc =
-    let body = (replace_calls func.name "self")#expression func.body in
+    let body = (replace_calls func.name self_name)#expression func.body in
     let self =
-      Param { param = { txt = "self"; loc }; label = (Nolabel, None) }
+      {
+        name = self_name;
+        label = (Nolabel, None);
+        ignored = false;
+        pattern = A.ppat_var ~loc { loc; txt = self_name };
+        call = (Nolabel, A.pexp_ident ~loc { loc; txt = Lident self_name });
+      }
     in
     (build_fn { func with body; params = self :: func.params }, func.loc)
   in
@@ -524,21 +500,13 @@ let transform_binding_recursively modname config filename b =
   (* the entire new rhs *)
   let new_rhs1 =
     let open Ast_helper in
+    let aux = ident ~loc aux_fn_name in
     let run =
       run_invoc modname config filename
-        [%expr [%e ident ~loc (mangle func.name)] aux]
+        [%expr [%e ident ~loc (mangle func.name)] [%e aux]]
         func
     in
-    let ps1 =
-      func.params
-      |> List.map (fun p ->
-             match p with
-             | Param { param; label = label, _ } ->
-               (* optional args don't seem to be supported by Exp.apply? *)
-               (label, ident ~loc param.txt)
-             | Unit { label = label, _ } -> (label, [%expr ()]))
-    in
-    let aux = ident ~loc "aux" in
+    let ps1 = func.params |> List.map (fun { call; _ } -> call) in
     build_fn
       {
         func with
@@ -552,7 +520,7 @@ let transform_binding_recursively modname config filename b =
             (Exp.let_ Recursive
                [
                  Ast_builder.Default.value_binding ~loc
-                   ~pat:(Pat.var { txt = "aux"; loc })
+                   ~pat:(Pat.var { txt = aux_fn_name; loc })
                    ~expr:(build_fn { func with body = run });
                ]
                (Exp.apply ~loc aux ps1));
@@ -610,7 +578,6 @@ let traverse modname filename config =
     method handle_method cf =
       match cf with
       | { pcf_desc = Pcf_method ({ txt = name; _ }, _, Cfk_virtual _); _ } ->
-        (* cf *)
         not_transforming "virtual method %s" name
       | {
        pcf_desc =

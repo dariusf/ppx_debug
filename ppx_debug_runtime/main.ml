@@ -91,8 +91,8 @@ let main_old ~print_value file =
       print_endline (Yojson.Safe.to_string json)
     | _ -> print_endline "unknown action"
 
-let input_files = ref None
-let file_args filename = input_files := Some filename
+(* let input_files = ref None *)
+(* let file_args filename = input_files := Some filename *)
 
 type output =
   | Chrome
