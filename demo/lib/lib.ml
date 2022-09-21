@@ -22,7 +22,7 @@ module Other = Other
 
 (* let abstr_type (t : Other.Abstr.t) = t *)
 (* let prv_type (t : Other.Priv.t) = t *)
-(* let consume (t : Other.misc) = match t with Misc a -> a *)
+let consume (t : Other.misc) = match t with Misc a -> a
 
 let rec insert x xs =
   match xs with
@@ -40,7 +40,7 @@ let shuffle d =
 let main () =
   Random.self_init ();
   let z = Node [Node [Leaf 1]; Leaf 2] in
-  (* consume (Misc 1) |> ignore; *)
+  consume (Misc 1) |> ignore;
   depth z |> ignore;
   fact 5 |> ignore;
   fib 3 |> ignore;

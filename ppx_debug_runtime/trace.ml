@@ -164,14 +164,13 @@ let emit_raw ~ppx_debug_file ~ppx_debug_id:id typ what v =
   Printf.fprintf (lazy_init ppx_debug_file) "%s\n%s\n%s\n%d\n%d%s\n" typ
     (Id.serialize id) what (get_time ()) (String.length s) s
 
+(* for function parameters. collected when converting to call tree *)
 let emit_argument ~ppx_debug_file ~ppx_debug_id:id what v =
   emit_raw ~ppx_debug_file ~ppx_debug_id:id "arg" what v
 
+(* for extension nodes *)
 let emit_value ~ppx_debug_file ~ppx_debug_id:id what v =
   emit_raw ~ppx_debug_file ~ppx_debug_id:id "value" what v
-
-let emit_match ~ppx_debug_file ~ppx_debug_id:id what v =
-  emit_raw ~ppx_debug_file ~ppx_debug_id:id "match" what v
 
 let read ~print_value filename =
   let read_n n file =

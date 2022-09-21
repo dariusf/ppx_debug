@@ -141,12 +141,68 @@ end)
      in
      A.pexp_apply ~loc f p_args) *)
 
+let relativize ~against path =
+  let regexp = Str.regexp (Format.asprintf {|^\(%s\)/?\(.*\)|} against) in
+  Str.string_match regexp path 0 |> ignore;
+  try Some (Str.matched_group 2 path) with Invalid_argument _ -> None
+
+let file_to_module =
+  let dot_ml = Str.regexp {|\.ml|} in
+  let slash = Str.regexp {|/|} in
+  fun path ->
+    let res =
+      List.map String.capitalize_ascii
+        (path |> Str.global_replace dot_ml "" |> Str.split slash)
+    in
+    match List.rev res with
+    | a :: b :: c when String.equal a b -> List.rev (b :: c)
+    | _ -> res
+
+let%expect_test _ =
+  let show a = a |> [%derive.show: string option] |> print_endline in
+  relativize ~against:"demo/lib" "demo/lib/lib.ml" |> show;
+  relativize ~against:"a" "demo/lib/lib.ml" |> show;
+  relativize ~against:"demo/lib/" "demo/lib/lib.ml" |> show;
+  let show a = a |> [%derive.show: string list] |> print_endline in
+  file_to_module "demo/lib/other.ml" |> show;
+  file_to_module "demo/lib/lib.ml" |> show;
+  file_to_module "lib.ml" |> show;
+  [%expect
+    {|
+  (Some "lib.ml")
+  None
+  (Some "lib.ml")
+  ["Demo"; "Lib"; "Other"]
+  ["Demo"; "Lib"]
+  ["Lib"]
+  |}]
+
+let rec path_to_lident p =
+  match p with
+  | Path.Pdot (p, s) -> Longident.Ldot (path_to_lident p, s)
+  | Pident i -> Lident (Ident.name i)
+  | Papply _ -> failwith "no correspondence"
+
+let flatten_path p =
+  match Path.flatten p with
+  | `Ok (h, xs) -> Ident.name h :: xs
+  | `Contains_apply -> failwith "adklj"
+
+let path_to_s p = flatten_path p |> String.concat "."
+let demangle modname = List.concat_map (String.split ~by:"__") modname
+
+let mnl_to_lident modname =
+  match modname with
+  | [] -> failwith "modname cannot be empty"
+  | m :: ms -> List.fold_left Ppxlib.(fun t c -> Ldot (t, c)) (Lident m) ms
+
 (* pp because show is non-compositional.
    file and qual are for the current compilation unit, i.e. where exp_type is used.
 *)
 let rec printer_and_type =
   let variant = (C.read ()).variant in
-  fun ~loc file qual exp_type ->
+  fun ~loc env file modname exp_type ->
+    (* undo the mangling dune does to get a path we can refer to values with *)
     let normal_type ?(args = []) name =
       A.ptyp_constr ~loc { txt = Ppxlib.Lident name; loc } args
     in
@@ -156,8 +212,8 @@ let rec printer_and_type =
          | true ->
            [%expr Result.pp [%e generate_printer_typ a] [%e generate_printer_typ b]]
          | _ -> *)
-      let pp_a, ta = printer_and_type ~loc file qual a in
-      let pp_b, tb = printer_and_type ~loc file qual b in
+      let pp_a, ta = printer_and_type ~loc env file modname a in
+      let pp_b, tb = printer_and_type ~loc env file modname b in
       ( Ppxlib.([%expr Format.pp_print_result ~ok:[%e pp_a] ~error:[%e pp_b]]),
         let* ta =
           with_ctx
@@ -208,7 +264,7 @@ let rec printer_and_type =
         Ok (normal_type "string") )
     | Tconstr (Pident ident, [a], _)
       when String.equal (Ident.name ident) "option" ->
-      let pp_a, ta = printer_and_type ~loc file qual a in
+      let pp_a, ta = printer_and_type ~loc env file modname a in
       ( (match variant with
         | Containers -> [%expr CCOpt.pp [%e pp_a]]
         | Stdlib -> [%expr Format.pp_print_option [%e pp_a]]),
@@ -222,7 +278,7 @@ let rec printer_and_type =
       handle_result a b
     | Tconstr (Pident ident, [a], _) when String.equal (Ident.name ident) "list"
       ->
-      let pp_a, ta = printer_and_type ~loc file qual a in
+      let pp_a, ta = printer_and_type ~loc env file modname a in
       ( (match variant with
         | Containers ->
           [%expr
@@ -245,9 +301,12 @@ let rec printer_and_type =
       ->
       ([%expr fun fmt () -> Format.fprintf fmt "()"], Ok (normal_type "unit"))
       (* the following two cases are the same except for the qualifiers *)
-    | Tconstr (id, args, _) -> named_type loc file qual id args
-    | Tvar _ ->
-      ([%expr fun fmt _ -> Format.fprintf fmt "<poly>"], Error "type variable")
+    | Tconstr (id, args, _) -> guess_named_type loc env file modname id args
+    | Tvar v ->
+      ( [%expr fun fmt _ -> Format.fprintf fmt "<poly>"],
+        (* Error "type variable" *)
+        Ok (A.ptyp_var ~loc (v |> Option.get_or ~default:"a"))
+        (* A.ptyp_constr ~loc { txt = Ppxlib.Lident name; loc } args *) )
     | Tarrow _ ->
       ([%expr fun fmt _ -> Format.fprintf fmt "<fn>"], Error "function")
     | Ttuple _ ->
@@ -262,150 +321,226 @@ let rec printer_and_type =
       ( [%expr fun fmt _ -> Format.fprintf fmt "<unimplemented>"],
         Error "unimplemented" )
 
-and named_type loc file qual id args =
-  (* log "qualified ident %a" Path.print id; *)
-  (* Pdot (q, ident) *)
-  (* qual is where the use of the type is found, q is where the type is defined *)
-  (* TOOD existing uses of qual are probably wrong *)
-  let rec path_to_lident p =
-    match p with
-    | Path.Pdot (p, s) -> Longident.Ldot (path_to_lident p, s)
-    | Pident i -> Lident (Ident.name i)
-    | Papply _ -> failwith "no correspondence"
-  in
-  let flatten_path p =
-    match Path.flatten p with
-    | `Ok (h, xs) -> Ident.name h :: xs
-    | `Contains_apply -> failwith "adklj"
-  in
-  let path_to_s p = flatten_path p |> String.concat "." in
-  let mappings =
-    (* List.assoc_opt ~eq:String.equal file (C.read ()).mappings
+and guess_named_type =
+  let library_entrypoints = (C.read ()).libraries in
+  fun loc env use_file use_modname id args ->
+    (* log "qualified ident %a" Path.print id; *)
+    (* Pdot (q, ident) *)
+    (* qual is where the use of the type is found, q is where the type is defined *)
+    (* TOOD existing uses of qual are probably wrong *)
+    let mappings =
+      (* List.assoc_opt ~eq:String.equal file (C.read ()).mappings
       *)
-    C.SMap.find_opt file (C.read ()).mappings
-    |> Option.get_or ~default:C.SMap.empty
-  in
-  let opaque_regexes = (C.read ()).treat_as_opaque |> List.map Str.regexp in
-  match id with
-  (* Path.Pdot (Pident _i, _ident) *)
-  | _
-    when (* List.mem ~eq:String.equal (path_to_s id) (C.read ()).treat_as_opaque *)
-         (* List.mem ~eq:String.equal (path_to_s id)
-            (C.read ()).treat_as_opaque *)
-         List.exists
+      C.SMap.find_opt use_file (C.read ()).mappings
+      |> Option.get_or ~default:C.SMap.empty
+    in
+    let opaque_regexes = (C.read ()).treat_as_opaque |> List.map Str.regexp in
+    match id with
+    (* Path.Pdot (Pident _i, _ident) *)
+    | _
+      when (* List.mem ~eq:String.equal (path_to_s id) (C.read ()).treat_as_opaque *)
+           (* List.mem ~eq:String.equal (path_to_s id)
+              (C.read ()).treat_as_opaque *)
+           List.exists
+             (fun r -> Str.string_match r (path_to_s id) 0)
+             opaque_regexes
+           ||
+           match
+             (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
+             C.SMap.find_opt (path_to_s id) mappings
+           with
+           | Some Opaque -> true
+           | _ -> false
+           (* when String.equal (Ident.name i) "Stdlib" *)
+           (* && List.mem ~eq:String.equal ident ["in_channel"] *) ->
+      log "opaque %s %b %b" (path_to_s id)
+        (List.exists
            (fun r -> Str.string_match r (path_to_s id) 0)
-           opaque_regexes
-         ||
-         match
+           opaque_regexes)
+        (match
            (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
            C.SMap.find_opt (path_to_s id) mappings
          with
-         | Some Opaque -> true
-         | _ -> false
-         (* when String.equal (Ident.name i) "Stdlib" *)
-         (* && List.mem ~eq:String.equal ident ["in_channel"] *) ->
-    log "opaque %s %b %b" (path_to_s id)
-      (List.exists
-         (fun r -> Str.string_match r (path_to_s id) 0)
-         opaque_regexes)
-      (match
-         (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
-         C.SMap.find_opt (path_to_s id) mappings
-       with
-      | Some Opaque -> true
-      | _ -> false);
-    ([%expr fun fmt _ -> Format.fprintf fmt "<opaque>"], Error "opaque type")
-  | _ ->
-    (* we have to figure out where some type is defined from where it is used in order to point to the right printer. *)
-    let get_pp_name typ = match typ with "t" -> "pp" | _ -> "pp_" ^ typ in
-    (* log "mappings %a" (List.pp (Pair.pp String.pp String.pp)) mappings;
-       log "%b" (List.mem_assoc ~eq:String.equal (path_to_s id) mappings);
-       log "%s" (path_to_s id); *)
-    let qualifier, ident_name =
-      match id with
-      (* sometimes a type is qualified because it is defined in a module, but it is used in the same compilation unit. a heuristic to figure this out is to check if the qualifier is not a library entrypoint... *)
-      (* | Path.Pdot (q, ident)
-         when String.find ~sub:"__" (Format.asprintf "%a" Path.print q) = -1
-         ->
-         let qq =
-           Longident.unflatten
-             (Longident.flatten qual @ Longident.flatten (path_to_lident q))
-           |> Option.get_exn_or "qualifiers cannot be concatenated"
-         in
-         (qq, ident) *)
-      (* rather than use fragile heuristics, take user input for how to access qualified types *)
+        | Some Opaque -> true
+        | _ -> false);
+      ([%expr fun fmt _ -> Format.fprintf fmt "<opaque>"], Error "opaque type")
+    | _ ->
+      (* we have to figure out where some type is defined from where it is used in order to point to the right printer. *)
+      let get_pp_name typ = match typ with "t" -> "pp" | _ -> "pp_" ^ typ in
+      let qualifier, ident_name =
+        let typdecl = Env.find_type id env in
+        (* Format.printf "%a@." Location.print_loc *)
+        let decl_filename = typdecl.type_loc.loc_start.pos_fname in
+        let first_matching f xs =
+          List.fold_left
+            (fun t c -> match t with None -> f c | Some _ -> t)
+            None xs
+        in
 
-      (* Path.Pdot (q, ident) *)
-      | _
-        when (* List.mem_assoc ~eq:String.equal (path_to_s id) mappings *)
-             C.SMap.mem (path_to_s id) mappings
-             (* C.SMap.mem file (C.read ()).mappings *)
-             (* && C.SMap.mem (path_to_s q)
-                  (C.SMap.find file (C.read ()).mappings) *) ->
-        (* print_endline (path_to_s q); *)
-        log "found mapping for %s" (path_to_s id);
-        let zz =
-          (* C.SMap.find (path_to_s q) (C.SMap.find file (C.read ()).mappings) *)
+        (* let entrypoint =
+             List.find_opt (fun le ->) library_entrypoints
+           in *)
+        (* how to refer to this type via the entrypoint of the lib it is in *)
+
+        (* let def_mod_prefix, def_mod =
+             match
+               first_matching
+                 (fun le ->
+                   match relativize ~against:le decl_filename with
+                   | None -> None
+                   | Some def_file ->
+                     Format.printf "matched %a. le: %s, file: %s@." Path.print id
+                       le def_file;
+                     let prefix = file_to_module (Filename.basename le) in
+                     let def_mod = file_to_module def_file in
+                     if String.equal use_file def_file then (
+                       print_endline "equal file, no prefixes at all";
+                       Some ([], []))
+                     else (
+                       match relativize ~against:le use_file with
+                       | None ->
+                         Format.printf "failed, so using full name@.";
+                         Some (prefix, def_mod)
+                       | Some _ ->
+                         Format.printf "succeeded, so dropping prefix@.";
+                         Some ([], def_mod))
+                   (* Some
+                      ( file_to_module (Filename.basename le),
+                        (* List.concat_map file_to_module (String.split ~by:"." file) *)
+                        file_to_module file ) *))
+                 library_entrypoints
+             with
+             | None ->
+               let s = String.split ~by:"." use_file in
+               ([List.hd s], List.tl s)
+             | Some (p, m) -> (p, m)
+           in *)
+        let def_prefix =
           match
-            (* List.assoc ~eq:String.equal (path_to_s id) mappings *)
-            C.SMap.find (path_to_s id) mappings
+            first_matching
+              (fun le ->
+                match relativize ~against:le decl_filename with
+                | None -> None
+                | Some def_file ->
+                  (* Format.printf "matched. le: %s@." le;
+                     Format.printf "def_file: %s@." def_file;
+                     Format.printf "decl_filename: %s@." decl_filename; *)
+                  let e = file_to_module (Filename.basename le) in
+                  let m = file_to_module def_file in
+                  if List.equal String.equal e m then Some e else Some (e @ m))
+              library_entrypoints
           with
-          | Rewrite s -> s
-          | _ -> failwith "invalid"
+          | None ->
+            (* let s = String.split ~by:"." use_file in
+               ([List.hd s], List.tl s) *)
+            file_to_module use_file
+          | Some p -> p
         in
-        let li, ident =
-          let li =
-            Longident.unflatten (String.split_on_char '.' zz)
-            |> Option.get_exn_or "cannot parse longident"
-          in
-          match li with
-          | Longident.Ldot (li, ident) -> (li, ident)
-          | _ -> failwith "asd"
-        in
-        (li, ident)
-      (* if the type is used in a compilation unit other than where it is defined, this information is part of the type's name *)
-      | Path.Pdot (q, ident) ->
-        log "another comp unit %s" (path_to_s id);
-        (path_to_lident q, ident)
-      (* if it's unqualified, we assume it is used where it is defined *)
-      | Pident ident ->
-        log "unqualified %s" (path_to_s id);
-        (qual, Ident.name ident)
-      | Papply _ -> failwith "not applicable"
-    in
-    log "printer name: (%s, %a, %a) -> (%a, %s)" file Pprintast.longident qual
-      Path.print id Pprintast.longident qualifier ident_name;
-    let printer =
-      A.pexp_ident ~loc
-        {
-          loc;
-          txt =
-            Ldot
-              ( qualifier (* path_to_lident q *),
-                get_pp_name ident_name
-                (* match ident_name with
-                   | "t" -> "pp"
-                   | _ ->
-                     "pp_"
-                     ^ (* ident *)
-                     ident_name *) );
-        }
-    in
-    let tident args =
-      A.ptyp_constr ~loc { loc; txt = Ldot (qualifier, ident_name) } args
-    in
-    (match args with
-    | [] -> (printer, Ok (tident []))
-    | _ :: _ ->
-      let p_args = List.map (fun a -> printer_and_type ~loc file qual a) args in
-      let p_args, types = List.split p_args in
-      let p_args = p_args |> List.map (fun a -> (Ppxlib.Nolabel, a)) in
-      let types = LR.sequence_m types in
-      ( A.pexp_apply ~loc printer p_args,
-        let* types in
-        Ok (tident types) ))
 
-let handle_expr modname it expr =
+        (* Format.printf "def_mod_prefix: %a@."
+             (Format.pp_print_list Format.pp_print_string)
+             def_mod_prefix;
+           Format.printf "def_mod: %a@."
+             (Format.pp_print_list Format.pp_print_string)
+             def_mod; *)
+
+        (* Format.printf "def mod %a@."
+           (Option.pp
+              (Pair.pp (Pair.pp String.pp String.pp) (List.pp String.pp)))
+           def_mod; *)
+        (* if no library entrypoints are given, assume the first part is the library *)
+        (* edge cases. if the compilation unit we're in is the same, drop the prefix *)
+        (* drop more prefixes if we're in the same module as the definition *)
+
+        (* let _old () =
+             match id with
+             | _ when C.SMap.mem (path_to_s id) mappings ->
+               log "found mapping for %s" (path_to_s id);
+               let zz =
+                 match C.SMap.find (path_to_s id) mappings with
+                 | Rewrite s -> s
+                 | _ -> failwith "invalid"
+               in
+               let li, ident =
+                 let li =
+                   Longident.unflatten (String.split_on_char '.' zz)
+                   |> Option.get_exn_or "cannot parse longident"
+                 in
+                 match li with
+                 | Longident.Ldot (li, ident) -> (li, ident)
+                 | _ -> failwith "asd"
+               in
+               (li, ident)
+             | Path.Pdot (q, ident) ->
+               log "another comp unit %s" (path_to_s id);
+               let x = Env.find_type id env in
+               Format.printf "%d@." x.type_arity;
+               Format.printf "%a@." Location.print_loc x.type_loc;
+               (path_to_lident q, ident)
+             | Pident ident ->
+               log "unqualified %s" (path_to_s id);
+               (mnl_to_lident use_modname, Ident.name ident)
+             | Papply _ -> failwith "not applicable"
+           in *)
+
+        (* old *)
+        (* let qual = mnl_to_lident (def_mod_prefix @ def_mod) in *)
+        let qual = mnl_to_lident def_prefix in
+        let new1 =
+          match id with
+          | Path.Pdot (_, ident) -> (qual, ident)
+          | Pident ident -> (qual, Ident.name ident)
+          | _ -> failwith "app"
+        in
+        new1
+      in
+
+      (* file: the file we're currently processing *)
+      (* qual: the module we're in, e.g. Lib *)
+      (* id: how we're referring to the type from the module we're in, e.g. Other.t *)
+      (* qualifier, ident_name: outputs *)
+      log
+        "printer name: (use_file = %s, use_modname = %a, id = %a) -guess-> \
+         (qualifier = %a, ident_name = %s)"
+        use_file
+        (* Pprintast.longident qual *)
+        (List.pp String.pp)
+        use_modname Path.print id Pprintast.longident qualifier ident_name;
+      let printer =
+        A.pexp_ident ~loc
+          {
+            loc;
+            txt =
+              Ldot
+                ( qualifier (* path_to_lident q *),
+                  get_pp_name ident_name
+                  (* match ident_name with
+                     | "t" -> "pp"
+                     | _ ->
+                       "pp_"
+                       ^ (* ident *)
+                       ident_name *) );
+          }
+      in
+      let tident args =
+        A.ptyp_constr ~loc { loc; txt = Ldot (qualifier, ident_name) } args
+      in
+      (match args with
+      | [] -> (printer, Ok (tident []))
+      | _ :: _ ->
+        let p_args =
+          List.map
+            (fun a -> printer_and_type ~loc env use_file use_modname a)
+            args
+        in
+        let p_args, types = List.split p_args in
+        let p_args = p_args |> List.map (fun a -> (Ppxlib.Nolabel, a)) in
+        let types = LR.sequence_m types in
+        ( A.pexp_apply ~loc printer p_args,
+          let* types in
+          Ok (tident types) ))
+
+let handle_expr use_modname it expr =
   let loc = expr.Typedtree.exp_loc in
   match expr.Typedtree.exp_desc with
   | Texp_apply
@@ -422,7 +557,6 @@ let handle_expr modname it expr =
         },
         args )
     when String.equal name "emit_value"
-         (* TODO deprecate emit_value *)
          || String.equal name "emit_argument"
          || String.equal name "emit_raw" ->
     let site_id =
@@ -522,22 +656,18 @@ let handle_expr modname it expr =
       in
       e.exp_type
     in
-    (* undo the mangling dune does to get a path we can refer to values with *)
-    let demangle mn = String.split ~by:"__" mn in
-    let modname = List.concat_map demangle modname in
-    let qual =
-      match modname with
-      | [] -> failwith "modname cannot be empty"
-      | m :: ms -> List.fold_left Ppxlib.(fun t c -> Ldot (t, c)) (Lident m) ms
+    let env = expr.exp_env in
+    let pp_fn, typ =
+      printer_and_type ~loc env site_id.file use_modname exp_type
     in
-    let pp_fn, typ = printer_and_type ~loc site_id.file qual exp_type in
     (* let typ = create_typ_name ~loc qual exp_type in *)
     (* begin
        match typ with
        | Some typ -> *)
     (* let () = *)
-    log "%s %d -> %a | %a | %a" site_id.file site_id.id Printtyp.type_expr
-      exp_type Ppxlib.Pprintast.expression pp_fn
+    log "file = %s, id = %d -> exp_type = %a | pp_fn = %a | typ = %a"
+      site_id.file site_id.id Printtyp.type_expr exp_type
+      Ppxlib.Pprintast.expression pp_fn
       (Result.pp Ppxlib.Pprintast.core_type)
       typ;
 
@@ -576,6 +706,7 @@ let walk_build_dir () =
   |> Seq.iter (function
        | `File, s when String.ends_with ~suffix:"cmt" s && should_ignore s ->
          let cmt = Cmt_format.read_cmt s in
+         Load_path.init cmt.cmt_loadpath;
          (* TODO does this do anything? *)
          let modname = cmt.cmt_modname |> String.split ~by:"." in
          (* let () =
@@ -585,9 +716,24 @@ let walk_build_dir () =
             in *)
          let str =
            match cmt.cmt_annots with
-           | Implementation str -> str
+           | Implementation str ->
+             let map =
+               {
+                 Tast_mapper.default with
+                 env = (fun _ env -> Envaux.env_of_only_summary env);
+               }
+             in
+             let str = map.structure map str in
+             str
            | _ -> failwith "not a cmt file"
          in
+         (* let _ =
+              let env = cmt.cmt_initial_env in
+              let x = Env.diff Env.empty env in
+              print_endline "idents";
+              List.iter (fun x -> Format.printf "i: %a" Ident.print x) x;
+              env
+            in *)
          (* Format.printf "typed ast %a@." Printtyped.implementation str; *)
          (* print_endline "traversing cmt"; *)
          let iter_structure =

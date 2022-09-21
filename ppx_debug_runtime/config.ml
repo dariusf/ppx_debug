@@ -102,6 +102,7 @@ type t = {
   mappings : rewrites;
       [@to_yojson rewrites_to_yojson] [@of_yojson rewrites_of_yojson]
   treat_as_opaque : string list;
+  libraries : string list;
 }
 [@@deriving yojson { strict = false }]
 
@@ -129,6 +130,7 @@ let default =
     variant = Stdlib;
     mappings = SMap.empty;
     treat_as_opaque = [];
+    libraries = [];
   }
 
 let parse s =

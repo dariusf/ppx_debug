@@ -15,5 +15,6 @@
   "calls": true,
   "variant": ["Stdlib"],
   "mappings": {},
-  "treat_as_opaque": []
+  "treat_as_opaque": [],
+  "libraries": ["demo/lib"]
 }
