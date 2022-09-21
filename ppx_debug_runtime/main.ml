@@ -102,27 +102,12 @@ type output =
 let format : output option ref = ref None
 let function_name : string option ref = ref None
 
-let parse_args () =
-  Arg.parse
-    [
-      ("-n", Arg.String (fun s -> function_name := Some s), "Function name");
-      ( "-f",
-        Arg.String
-          (fun s ->
-            format :=
-              match s with
-              | "calls" -> Some Calls
-              | "debugger" -> Some Debugger
-              | "chrome" | _ -> Some Chrome),
-        "Print output in the given trace format" );
-    ]
-    file_args "tool <file1> -f <chrome|debugger>"
-
 let strip_newlines =
   let nl = Str.regexp "\n" in
   fun v -> Str.global_replace nl " " v
 
-let act_on fmt trace =
+let act_on ~print_value file fmt =
+  let trace = Trace.read ~print_value file in
   match fmt with
   | Some Calls ->
     let tree = Trace.to_call_tree trace in
@@ -135,15 +120,21 @@ let act_on fmt trace =
       | ( Trace.Call
             { i; calls; args; name; id = { file; loc = (line, _), _; _ }; _ },
           _ ) ->
-        let argss =
+        let res = List.assoc "_res" args |> strip_newlines in
+        let args =
           args
           |> List.filter (fun (n, _) -> not (String.starts_with ~prefix:"_" n))
-          |> List.map (fun (k, v) ->
-                 Format.asprintf "(%s: %s)" k (strip_newlines v))
-          |> String.concat ", "
         in
-        let res = List.assoc "_res" args |> strip_newlines in
-        Format.printf "%5d %s:%d %s %s = %s@." i file line name argss res;
+        let argss =
+          match args with
+          | [] -> ""
+          | _ ->
+            args
+            |> List.map (fun (k, v) ->
+                   Format.asprintf "(%s: %s)" k (strip_newlines v))
+            |> String.concat ", " |> ( ^ ) " "
+        in
+        Format.printf "%5d %s:%d %s%s = %s@." i file line name argss res;
         List.iter f calls
       | Event _, _ -> ()
     in
@@ -157,10 +148,46 @@ let act_on fmt trace =
     Chrome_trace.call_tree_to_chrome tree |> fun e ->
     `List e |> Yojson.Safe.to_string |> print_endline
 
-let main ~print_value () =
-  parse_args ();
-  match (!input_files, !format) with
-  | Some file, fmt ->
-    let trace = Trace.read ~print_value file in
-    act_on fmt trace
-  | None, _ -> print_endline "expected a file"
+module Cli = struct
+  open Cmdliner
+
+  let trace_cmd print_value =
+    let format =
+      Arg.(
+        value
+        & opt
+            (some
+               (Arg.enum
+                  [("chrome", Chrome); ("debugger", Debugger); ("calls", Calls)]))
+            (Some Chrome)
+        & info ["f"; "format"] ~docv:"FORMAT"
+            ~doc:
+              "Specify output format. Allowed values: chrome, debugger, calls")
+    in
+    let file =
+      let doc = "file" in
+      Arg.(required & pos 0 (some string) None & info [] ~docv:"FILE" ~doc)
+      (* non_empty *)
+    in
+    let info =
+      Cmd.info "trace" ~doc:"render traces in various formats"
+        ~man:
+          [
+            `S Manpage.s_description;
+            `P
+              "Prints a trace in Chrome trace format, as a list of calls, or \
+               as JSON consumed by editor plugins.";
+          ]
+    in
+    Cmd.v info Term.(const (act_on ~print_value) $ file $ format)
+
+  let main_cmd print_value =
+    let info =
+      Cmd.info "debug" ~version:"v0.1"
+        ~doc:"Extracts information from ppx_debug traces"
+    in
+    let default = Term.(ret (const (`Ok ()))) in
+    Cmd.group info ~default [trace_cmd print_value]
+end
+
+let main ~print_value () = exit (Cmdliner.Cmd.eval (Cli.main_cmd print_value))
