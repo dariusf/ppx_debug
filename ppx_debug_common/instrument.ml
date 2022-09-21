@@ -124,11 +124,10 @@ let normalize_fn f : func =
 
 (** Lossy somewhat-inverse of traverse_fn *)
 let rec build_fn ({ loc; params; body; _ } as func) =
-  let open Ast_helper in
   match params with
   | [] -> body
   | { label = lbl, lbl_e; pattern; _ } :: ps ->
-    Exp.fun_ ~loc lbl lbl_e pattern (build_fn { func with params = ps })
+    A.pexp_fun ~loc lbl lbl_e pattern (build_fn { func with params = ps })
 
 let transform_fn_body f e =
   let func = normalize_fn e in
@@ -168,7 +167,6 @@ let extract_binding_info b =
   { func with name = fn_name }
 
 let replace_calls find replace =
-  let open Ast_helper in
   object
     inherit Ast_traverse.map as super
 
@@ -179,7 +177,7 @@ let replace_calls find replace =
       match expr with
       | { pexp_desc = Pexp_ident { txt = Lident fn_name; loc }; _ }
         when String.equal fn_name find ->
-        Exp.ident ~loc { txt = Lident replace; loc }
+        A.pexp_ident ~loc { txt = Lident replace; loc }
       (* | { pexp_desc = Pexp_ident { txt = Ldot (initial, fn_name); loc }; _ }
          when String.equal fn_name find ->
          Exp.ident ~loc { txt = Ldot (initial, replace); loc } *)
@@ -187,34 +185,27 @@ let replace_calls find replace =
   end
 
 let mangle fn_name = fn_name ^ "_original"
-
-let ident ~loc s =
-  let open Ast_helper in
-  Exp.ident ~loc { txt = Lident s; loc }
+let ident ~loc s = A.pexp_ident ~loc { txt = Lident s; loc }
 
 let qualified_ident ~loc ss =
-  let open Ast_helper in
   match ss with
   | [] -> failwith "qualified_ident requires a non-empty list"
   | [s] -> ident ~loc s
   | s :: ss ->
     let res = List.fold_left (fun t c -> Ldot (t, c)) (Lident s) ss in
-    Exp.ident ~loc { txt = res; loc }
+    A.pexp_ident ~loc { txt = res; loc }
 
 let rec fun_wildcards ~loc n body =
-  let open Ast_helper in
   match n with
   | 0 -> body
   | _ ->
-    Exp.fun_ ~loc Nolabel None (Pat.any ()) (fun_wildcards ~loc (n - 1) body)
+    A.pexp_fun ~loc Nolabel None (A.ppat_any ~loc)
+      (fun_wildcards ~loc (n - 1) body)
 
 let app ~loc f args =
-  let open Ast_helper in
-  Exp.apply ~loc f (List.map (fun a -> (Nolabel, a)) args)
+  A.pexp_apply ~loc f (List.map (fun a -> (Nolabel, a)) args)
 
-let str ~loc s =
-  let open Ast_helper in
-  Exp.constant ~loc (Pconst_string (s, loc, None))
+let str ~loc s = A.pexp_constant ~loc (Pconst_string (s, loc, None))
 
 let rec show_longident l =
   match l with
@@ -443,15 +434,14 @@ let check_should_transform_fn config fn =
 
 let nonrecursive_rhs modname config filename func =
   let loc = func.loc in
-  let open Ast_helper in
   let func =
     {
       func with
       body =
-        Exp.let_ Nonrecursive
+        A.pexp_let ~loc Nonrecursive
           [
             Ast_builder.Default.value_binding ~loc
-              ~pat:(Pat.var { txt = mangle func.name; loc })
+              ~pat:(A.ppat_var ~loc { txt = mangle func.name; loc })
               ~expr:(build_fn func);
           ]
           (run_invoc modname config filename
@@ -499,7 +489,6 @@ let transform_binding_recursively modname config filename b =
 
   (* the entire new rhs *)
   let new_rhs1 =
-    let open Ast_helper in
     let aux = ident ~loc aux_fn_name in
     let run =
       run_invoc modname config filename
@@ -511,19 +500,19 @@ let transform_binding_recursively modname config filename b =
       {
         func with
         body =
-          Exp.let_ Nonrecursive
+          A.pexp_let ~loc Nonrecursive
             [
               Ast_builder.Default.value_binding ~loc
-                ~pat:(Pat.var { txt = mangle func.name; loc })
+                ~pat:(A.ppat_var ~loc { txt = mangle func.name; loc })
                 ~expr:original_fn_body;
             ]
-            (Exp.let_ Recursive
+            (A.pexp_let ~loc Recursive
                [
                  Ast_builder.Default.value_binding ~loc
-                   ~pat:(Pat.var { txt = aux_fn_name; loc })
+                   ~pat:(A.ppat_var ~loc { txt = aux_fn_name; loc })
                    ~expr:(build_fn { func with body = run });
                ]
-               (Exp.apply ~loc aux ps1));
+               (A.pexp_apply ~loc aux ps1));
       }
   in
 
@@ -801,7 +790,7 @@ let traverse modname filename config =
         begin
           try
             let r =
-              Ast_helper.Str.value flag
+              A.pstr_value ~loc flag
                 (transform_bindings modname filename config rec_flag bindings)
             in
             r

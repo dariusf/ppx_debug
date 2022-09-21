@@ -607,9 +607,7 @@ let walk_build_dir () =
 
 open Ppxlib
 
-let str ~loc s =
-  let open Ast_helper in
-  Exp.constant ~loc (Pconst_string (s, loc, None))
+let str ~loc s = A.pexp_constant ~loc (Pconst_string (s, loc, None))
 
 let g_print_value loc =
   let cases =
