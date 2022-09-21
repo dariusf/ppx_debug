@@ -26,13 +26,6 @@ module SMap = struct
     update k (function None -> failwith "invalid" | Some v -> Some (f v)) m
 
   let create xs = M.of_seq (List.to_seq xs)
-  (* type 'a elements = (string * 'a) list [@@deriving yojson] *)
-
-  (* let to_yojson af set = set |> bindings |> elements_to_yojson af
-
-     let of_yojson af json =
-       json |> elements_of_yojson af
-       |> Result.map (fun a -> a |> List.to_seq |> of_seq) *)
 end
 
 type action =
@@ -134,124 +127,26 @@ let default =
     matches = true;
     calls = true;
     variant = Stdlib;
-    (* mappings = [] *)
-    (* mappings = [] SMap.empty;; *)
     mappings = SMap.empty;
-    treat_as_opaque =
-      []
-      (* mappings =
-           [
-             ( "ppx_debug/ppx_debug.ml",
-               [
-                 ("C.t", `Opaque);
-                 ("C.mode", `Opaque);
-                 ("param", `Opaque);
-                 ("func", `Opaque);
-               ] );
-             ( "ppx_debug_runtime/trace.ml",
-               [
-                 ("Id.t", `Rewrite "Ppx_debug_runtime.Trace.Id.t");
-                 (* ("t", "Ppx_debug_runtime.Trace.t"); *)
-                 ("t", `Opaque);
-               ] );
-             ( "ppx_debug_runtime/config.ml",
-               [
-                 (* this is weird *)
-                 ("key", `Opaque);
-                 ("t", `Opaque);
-                 ("mode", `Opaque);
-                 ("variant", `Opaque);
-               ] );
-           ]
-           (* SMap.of_seq (List.to_seq [, SMap.]) *)
-           (* [; [k]] *);
-         treat_as_opaque =
-           [
-             "Astlib__.Ast_412.Parsetree.expression";
-             "Astlib__.Ast_412.Parsetree.structure";
-             "Astlib__.Ast_412.Parsetree.structure_item";
-             "Astlib__.Ast_412.Parsetree.pattern";
-             "Astlib__.Ast_412.Parsetree.core_type";
-             "Stdlib.format4";
-             "Ppxlib.pattern_desc";
-             "Ppxlib.pattern";
-             "Ppxlib.attribute";
-             "Ppxlib.longident";
-             "Ppxlib_ast__Ast_helper_lite.loc";
-             "Ppxlib.core_type_desc";
-             "Astlib.Ast_412.Parsetree.expression";
-             "Ppxlib__.Import.Ast.expression";
-             "Ppxlib__.Import.Ast.structure_item";
-             "Ppxlib.value_binding";
-             "Ppxlib.expression";
-             "Ppxlib.location";
-             "Ppxlib.core_type";
-             "Ppxlib_ast__Ast_helper_lite.pp_loc";
-             "Ppxlib__.Import.expression";
-             "Ppxlib.expression_desc";
-             "Ppxlib.structure_item";
-             "Ppxlib.case";
-             "Ppxlib.rec_flag";
-             "Astlib.Ast_412.Parsetree.structure_item";
-             "Ppx_deriving_yojson_runtime.error_or";
-             "Ppx_deriving_yojson_runtime.Result.result";
-             "Stdlib.Scanf.Scanning.file_name";
-             "Stdlib.Scanf.Scanning.in_channel";
-             "Stdlib.in_channel";
-             "Stdlib.out_channel";
-             (* this should be ignored as a builtin *)
-             "Stdlib.String.t";
-           ]; *);
+    treat_as_opaque = [];
   }
-
-(* mode=All,f,g+blah=a,b,c
-   let parse s =
-     let kvps = s |> String.split_on_char '+' in
-     List.fold_right
-       (fun c t ->
-         match c |> String.trim |> String.split_on_char '=' with
-         | ["enabled"; "true"] -> { t with enabled = true }
-         | ["enabled"; "false"] -> { t with enabled = false }
-         | ["lambdas"; "true"] -> { t with lambdas = true }
-         | ["lambdas"; "false"] -> { t with lambdas = false }
-         | ["matches"; "true"] -> { t with matches = true }
-         | ["matches"; "false"] -> { t with matches = false }
-         | ["file"; f] -> { t with file = f }
-         | ["log"; "true"] -> { t with ppx_logging = true }
-         | ["log"; "false"] -> { t with ppx_logging = false }
-         | ["variant"; "containers"] -> { t with variant = Containers }
-         | ["variant"; "stdlib"] -> { t with variant = Stdlib }
-         | ["mode"; v] ->
-           begin
-             match String.split_on_char ',' v with
-             | "All" :: blacklist -> { t with mode = All blacklist }
-             | "Some" :: whitelist -> { t with mode = Some whitelist }
-             | "Modules" :: whitelist -> { t with mode = Modules whitelist }
-             | m -> failwith ("unable to parse mode " ^ String.concat "," m)
-           end
-         | _ -> failwith ("unable to parse config: " ^ s))
-       kvps default *)
 
 let parse s =
   let x = s |> Yojson.Safe.from_string |> of_yojson in
   match x with
   | Ok y -> y
   | Error s -> failwith (Format.asprintf "failed to parse config: %s" s)
-(* Result.get_ok x *)
 
 (* memoize because this may be called many times and environment variables don't change *)
 let read =
   let config = ref None in
   fun () ->
-    (* print_endline (default |> to_yojson |> Yojson.Safe.to_string); *)
     match !config with
     | None ->
       let c =
         match Sys.getenv_opt "PPX_DEBUG" with
         | None -> default
-        | Some s ->
-          (* default *)
-          parse s
+        | Some s -> parse s
       in
       config := Some c;
       c

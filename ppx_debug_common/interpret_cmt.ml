@@ -575,7 +575,6 @@ let walk_build_dir () =
   IO.File.walk_seq "."
   |> Seq.iter (function
        | `File, s when String.ends_with ~suffix:"cmt" s && should_ignore s ->
-         (* print_endline s; *)
          let cmt = Cmt_format.read_cmt s in
          (* TODO does this do anything? *)
          let modname = cmt.cmt_modname |> String.split ~by:"." in
@@ -602,8 +601,6 @@ let walk_build_dir () =
          in
          iter_structure str
        | _ -> ())
-(* in *)
-(* print_endline "ok" *)
 
 open Ppxlib
 
@@ -613,18 +610,10 @@ let g_print_value loc =
   let cases =
     A.pexp_match ~loc [%expr id]
       ((!id_type_mappings
-       (* |> List.uniq
-            ~eq:(fun
-                  (Ppx_debug_runtime.Id.{ id = id1; _ }, _)
-                  ({ id = id2; _ }, _)
-                -> id1 = id2) *)
        |> List.map (fun (Id.{ file; id; _ }, typ_info) ->
-              (* let typ_ident = A.pexp_ident ~loc { loc; txt = Lident typ } in *)
-              (* let typ_ident = A.pexp_ident ~loc { loc; txt = Lident typ } in *)
               let show_arg =
                 match typ_info.typ with
                 | None ->
-                  (* [%expr ()] *)
                   (* i.e. always work *)
                   [%expr Marshal.from_string _content 0]
                 | Some typ ->
@@ -632,15 +621,6 @@ let g_print_value loc =
               in
               A.case
                 ~lhs:
-                  (* (A.ppat_tuple ~loc
-                     [
-                       A.pstring ~loc file;
-                       A.ppat_any ~loc;
-                       (* A.ppat_any ~loc; *)
-                       (* A.pstring ~loc func; *)
-                       A.pint ~loc id;
-                     ]) *)
-                  (* (A.ppat_record ~loc [] Closed) *)
                   [%pat?
                     Ppx_debug_runtime.Id.
                       {
