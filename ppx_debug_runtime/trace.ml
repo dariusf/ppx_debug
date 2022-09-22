@@ -237,12 +237,23 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
   in
   let rec build_tree trace =
     match trace with
+    | (MatchScrutinee { time; id; name; content; unmarshal; raw } as e) :: es
+    | (MatchBranch { time; id; name; content; unmarshal; raw } as e) :: es
+    | (Value { time; id; name; content; unmarshal; raw } as e) :: es
+    | (AfterCall { time; id; name; content; unmarshal; raw } as e) :: es
+    | (BeforeCall { time; id; name; content; unmarshal; raw } as e) :: es ->
+      (* it's possible for these to occur outside any call, e.g. if a non-instrumented function is called *)
+      let tree, trace = build_tree es in
+      let ev = leaf (fresh ()) e id name content time unmarshal raw in
+      (ev :: tree, trace)
     | FrameStart { func; id; time = start_time; _ } :: es ->
       (* reserve an id first *)
       let i = fresh () in
       let trace, args, trees, end_time = look_for_end es [] [] in
-      (node i func id args trees start_time end_time, trace)
-    | _ :: _ -> failwith "expected FrameStart"
+      let subtree = node i func id args trees start_time end_time in
+      ([subtree], trace)
+    | e :: _ ->
+      failwith (Format.asprintf "expected FrameStart, got %a" pp_event e)
     | [] -> failwith "empty trace"
   and look_for_end trace args res =
     match trace with
@@ -251,9 +262,9 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
         match e with
         | FrameEnd { time; _ } -> (es, List.rev args, List.rev res, time)
         | FrameStart _ ->
-          (* note that we recurse on trace, not es *)
+          (* note that we recurse on (e :: es), not es *)
           let tree, trace = build_tree (e :: es) in
-          look_for_end trace args (tree :: res)
+          look_for_end trace args (tree @ res)
         | MatchScrutinee { id; content; name; time; unmarshal; raw }
         | MatchBranch { id; content; name; time; unmarshal; raw }
         | Value { id; content; name; time; unmarshal; raw }
@@ -273,7 +284,7 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
     | [] -> []
     | _ :: _ ->
       let tree, trace = build_tree trace in
-      tree :: collect_trees trace
+      tree @ collect_trees trace
   in
   (* reserve id first, so nodes chronologically earlier in the call tree get smaller ids *)
   let i = fresh () in
