@@ -70,68 +70,50 @@ let rewrites_of_yojson json =
 
 type t = {
   (* whether to run the ppx *)
-  enabled : bool;
+  enabled : bool; [@default true]
   (* control which functions/modules to log *)
   (* deprecated *)
-  mode : mode;
+  mode : mode; [@default All []]
   (* control which functions/modules to log via regexes *)
-  instrument_modules : string;
-  instrument_functions : string;
-  function_blacklist : string;
-  light_logging : (string * string) list;
+  instrument_modules : string; [@default ".*"]
+  instrument_functions : string; [@default ".*"]
+  function_blacklist : string; [@default " "]
+  light_logging : (string * string) list; [@default []]
   (* the file the raw trace should be written to *)
-  file1 : string;
-  randomize_filename : bool;
+  file1 : string; [@default "debug.trace"]
+  randomize_filename : bool; [@default false]
   (* whether to enable debug logging in the ppx, and the locations of those logs *)
-  ppx_logging : bool;
-  internal_log : string;
-  internal_tool_log : string;
+  ppx_logging : bool; [@default true]
+  internal_log : string; [@default "/tmp/ppx_debug.txt"]
+  internal_tool_log : string; [@default "/tmp/ppx_debug_tool.txt"]
   (* whether to trace anonymous functions *)
-  lambdas : bool;
+  lambdas : bool; [@default true]
   (* whether to trace match discriminees *)
-  matches : bool;
+  matches : bool; [@default true]
   (* whether to trace function calls *)
-  calls : bool;
+  calls : bool; [@default true]
   (* what sorts of printers to generate *)
-  variant : variant;
+  variant : variant; [@default Stdlib]
   (* mappings *)
   (* file -> from_name -> to_name *)
   (* mappings : string SMap.t SMap.t; *)
   (* mappings : (string * (string * [ `Opaque | `Rewrite of string ]) list) list; *)
   (* string SMap.t SMap.t *)
   mappings : rewrites;
-      [@to_yojson rewrites_to_yojson] [@of_yojson rewrites_of_yojson]
-  treat_as_opaque : string list;
-  libraries : string list;
+      [@to_yojson rewrites_to_yojson]
+      [@of_yojson rewrites_of_yojson]
+      [@default SMap.empty]
+  treat_as_opaque : string list; [@default []]
+  libraries : string list; [@default []]
 }
-[@@deriving yojson { strict = false }]
+[@@deriving yojson { strict = false }, show { with_path = false }]
 
 let get_file d =
   if d.randomize_filename then
     Format.asprintf "/tmp/%d_%s" (int_of_float (Unix.gettimeofday ())) d.file1
   else d.file1
 
-let default =
-  {
-    enabled = true;
-    mode = All [];
-    instrument_modules = ".*";
-    instrument_functions = ".*";
-    function_blacklist = " ";
-    light_logging = [];
-    file1 = "debug.trace";
-    randomize_filename = false;
-    ppx_logging = true;
-    internal_log = "/tmp/ppx_debug.txt";
-    internal_tool_log = "/tmp/ppx_debug_tool.txt";
-    lambdas = true;
-    matches = true;
-    calls = true;
-    variant = Stdlib;
-    mappings = SMap.empty;
-    treat_as_opaque = [];
-    libraries = [];
-  }
+let default = of_yojson (`Assoc []) |> Result.get_ok
 
 let parse s =
   let x = s |> Yojson.Safe.from_string |> of_yojson in
