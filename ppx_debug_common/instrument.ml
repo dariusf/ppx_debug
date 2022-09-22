@@ -364,11 +364,12 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
   in
   let print_params =
     if
-      List.exists
-        (fun (m, f) ->
-          Str.string_match (Str.regexp m) modname 0
-          && Str.string_match (Str.regexp f) func.name 0)
-        config.light_logging
+      config.should_instrument_definitions
+      && List.exists
+           (fun (m, f) ->
+             Str.string_match (Str.regexp m) modname 0
+             && Str.string_match (Str.regexp f) func.name 0)
+           config.should_not_instrument_definitions
     then [%expr ()]
     else List.fold_right (A.pexp_sequence ~loc) print_params [%expr ()]
   in
@@ -381,7 +382,7 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
         (fun (m, f) ->
           Str.string_match (Str.regexp m) modname 0
           && Str.string_match (Str.regexp f) func.name 0)
-        config.light_logging
+        config.should_not_instrument_definitions
     then [%expr ()]
     else generate_arg ~loc filename "_res"
   in
@@ -636,7 +637,8 @@ let traverse modname filename config =
        _;
       } ->
         generate_value ~loc filename id
-      | { pexp_desc = Pexp_match (scr, cases); _ } when config.Config.matches ->
+      | { pexp_desc = Pexp_match (scr, cases); _ }
+        when config.Config.should_instrument_matches ->
         let loc = scr.pexp_loc in
         let matched =
           truncate (Format.asprintf "%a" Pprintast.expression scr)
@@ -668,7 +670,7 @@ let traverse modname filename config =
         in
         { e with pexp_desc = Pexp_match (scr, cases) }
       | { pexp_desc = Pexp_apply (f, args); pexp_loc = loc; _ }
-        when config.Config.calls ->
+        when config.Config.should_instrument_calls ->
         (* TODO these aren't perfect as they may hit the beginnings/ends of lines *)
         (* they are also unintuitive *)
         (* let bloc =
@@ -705,7 +707,8 @@ let traverse modname filename config =
           let result__ = [%e e] in
           [%e after];
           result__]
-      | { pexp_desc = Pexp_fun _; _ } when config.Config.lambdas ->
+      | { pexp_desc = Pexp_fun _; _ }
+        when config.Config.should_instrument_lambdas ->
         let func = normalize_fn e in
         (* TODO name more uniquely *)
         if CCEqual.physical func.body e then

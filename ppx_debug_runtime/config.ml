@@ -61,48 +61,51 @@ let rewrites_of_yojson json =
   with Failure s -> Error s
 
 type t = {
-  (* whether to run the ppx *)
-  enabled : bool; [@default true]
-  (* control which functions/modules to log *)
-  (* control which functions/modules to log via regexes *)
-  instrument_modules : string; [@default ".*"]
-  instrument_functions : string; [@default ".*"]
-  function_blacklist : string; [@default " "]
-  light_logging : (string * string) list; [@default []]
-  (* the file the raw trace should be written to *)
-  file1 : string; [@default "debug.trace"]
-  randomize_filename : bool; [@default false]
-  (* whether to enable debug logging in the ppx, and the locations of those logs *)
+  (* whether to enable debug logging in the ppx itself, and the locations of its log files *)
   ppx_logging : bool; [@default true]
   internal_log : string; [@default "/tmp/ppx_debug.txt"]
   internal_tool_log : string; [@default "/tmp/ppx_debug_tool.txt"]
-  (* whether to trace anonymous functions *)
-  lambdas : bool; [@default true]
-  (* whether to trace match discriminees *)
-  matches : bool; [@default true]
-  (* whether to trace function calls *)
-  calls : bool; [@default true]
-  (* what sorts of printers to generate *)
+  (* whether to run the instrumentation ppx *)
+  should_instrument : bool; [@default true]
+  (* which functions/modules should be instrumented. *)
+  instrument_modules : string; [@default ".*"]
+      (* the function blacklist is applied on top of the whitelist *)
+  instrument_functions : string; [@default ".*"]
+  function_blacklist : string; [@default " "]
+  (* file raw trace should be written to *)
+  file : string; [@default "debug.trace"]
+  (* TODO this needs more testing *)
+  randomize_filename : bool; [@default false]
+  (* whether to instrument the given syntactic constructs *)
+  should_instrument_lambdas : bool; [@default true]
+  should_instrument_matches : bool; [@default true]
+  should_instrument_calls : bool; [@default true]
+  (* again the blacklist is applied on top of the whitelist *)
+  should_instrument_definitions : bool; [@default true]
+  (* (module name, function name) pairs *)
+  should_not_instrument_definitions : (string * string) list; [@default []]
+  (* what sort of printers to generate *)
   variant : variant; [@default Stdlib]
+  (* do not search these directories for cmt files *)
+  cmt_ignored_directories : string list; [@default ["test/"]]
+  (* if (dune) libraries are nested more than one directory deep, provide their entrypoint modules here, e.g. demo/lib *)
+  libraries : string list; [@default []]
+  (* do not search cmt files for printers of types whose names match these regexes *)
+  opaque_type_names : string list; [@default []]
   (* mappings *)
+  (* TODO needs more testing *)
   (* file -> from_name -> to_name *)
-  (* mappings : string SMap.t SMap.t; *)
-  (* mappings : (string * (string * [ `Opaque | `Rewrite of string ]) list) list; *)
-  (* string SMap.t SMap.t *)
   mappings : rewrites;
       [@to_yojson rewrites_to_yojson]
       [@of_yojson rewrites_of_yojson]
       [@default SMap.empty]
-  treat_as_opaque : string list; [@default []]
-  libraries : string list; [@default []]
-  cmt_ignored_directories : string list; [@default ["test/"]]
 }
 [@@deriving yojson { strict = false }, show { with_path = false }]
 
 let get_file d =
   if d.randomize_filename then
-    Format.asprintf "/tmp/%d_%s" (int_of_float (Unix.gettimeofday ())) d.file1
-  else d.file1
+    Format.asprintf "/tmp/%d_%s" (int_of_float (Unix.gettimeofday ())) d.file
+  else d.file
 
 let default = of_yojson (`Assoc []) |> Result.get_ok
 

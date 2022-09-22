@@ -1,11 +1,10 @@
 {
   "enabled": true,
-  "mode": ["All", []],
   "instrument_modules": ".*",
   "instrument_functions": ".*",
   "function_blacklist": " ",
   "light_logging": [],
-  "file1": "debug.trace",
+  "file": "debug.trace",
   "randomize_filename": false,
   "ppx_logging": true,
   "internal_log": "/tmp/ppx_debug.txt",

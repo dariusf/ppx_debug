@@ -219,7 +219,7 @@ and guess_named_type =
       C.SMap.find_opt use_file (C.read ()).mappings
       |> Option.get_or ~default:C.SMap.empty
     in
-    let opaque_regexes = (C.read ()).treat_as_opaque |> List.map Str.regexp in
+    let opaque_regexes = (C.read ()).opaque_type_names |> List.map Str.regexp in
     match id with
     | _
       when List.exists
