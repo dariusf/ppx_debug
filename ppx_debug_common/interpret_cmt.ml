@@ -233,10 +233,7 @@ and guess_named_type =
         (List.exists
            (fun r -> Str.string_match r (path_to_s id) 0)
            opaque_regexes)
-        (match
-           (* List.assoc_opt ~eq:String.equal (path_to_s id) mappings *)
-           C.SMap.find_opt (path_to_s id) mappings
-         with
+        (match C.SMap.find_opt (path_to_s id) mappings with
         | Some Opaque -> true
         | _ -> false);
       ([%expr fun fmt _ -> Format.fprintf fmt "<opaque>"], Error "opaque type")

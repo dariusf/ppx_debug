@@ -179,8 +179,6 @@ let read ~print_value filename =
   let file = Scanf.Scanning.open_in_bin filename in
   let rec loop all =
     let typ = Scanf.bscanf file "%s@\n" (fun typ -> typ) in
-    (* print_endline typ;
-       print_endline (string_of_int (String.length typ)); *)
     match typ with
     | "start" ->
       let id = Id.deserialize file in
@@ -276,7 +274,6 @@ let to_tree ?(toplevel = top_level_node) ~leaf ~node trace =
           look_for_end es ((name, content, unmarshal, raw) :: args) res
       end
     | [] -> failwith "start without end"
-    (* ([], List.rev args, List.rev res) *)
   in
   (* build_tree returns the collected trees and the remaining trace, so we have to iterate it *)
   let rec collect_trees trace =
@@ -312,19 +309,8 @@ type 'a callx =
       end_time : int;
       id : Id.t;
     }
-(* TODO remove this later as it can blow up *)
-(* [@@deriving show { with_path = false }] *)
 
 type call = string callx
-(* [@@deriving show { with_path = false }] *)
-
-(* let show_call c = "" *)
-(* match c with
-   | Event
-   | Call *)
-
-(* will blow up when printed due to the same subtrees appearing multiple times *)
-(* [@@deriving yojson] *)
 
 let to_call_tree trace =
   to_tree
@@ -429,7 +415,6 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
             ("name", `String name);
             ("content", `String content);
           ]
-        (* DEvent { id; name; content; i = nid } *)
       in
       (nid, nid, (nid, this) :: nodes, new_edges @ edges, breakpoints)
     | Call { id; name; calls; args; _ } ->
@@ -442,7 +427,6 @@ let preprocess_for_debugging tree : Yojson.Safe.t =
             ("name", `String name);
             ("args", `Assoc (List.map (fun (k, v) -> (k, `String v)) args));
           ]
-        (* DCall { id; name; args; i = nid } *)
       in
       let nodes, edges = ((nid, this) :: nodes, new_edges @ edges) in
       (* extend lineage once for all children *)

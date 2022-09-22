@@ -1,9 +1,7 @@
 open Containers
 
 (* logging the low-tech way *)
-(* IO.File.remove_noerr filename; *)
 
-(* IO.File.make (Sys.getcwd () ^ "/ppx_debug.txt") *)
 module Config = Ppx_debug_runtime.Config
 
 module Make (S : sig

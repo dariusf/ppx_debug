@@ -50,12 +50,3 @@ let main () =
   sort (List.init 10 (fun i -> i) |> shuffle) |> ignore
 (* abstr_type (Other.Abstr.of_int 1) |> ignore; *)
 (* prv_type (Other.Priv.of_int 1) |> ignore *)
-
-(* let f b =
-     let (Other.Misc a) = b in
-     Other.Misc (a + 1)
-
-   let main () = f (Other.Misc 3) |> ignore *)
-
-(* let f x = x + 1
-   let main () = f 2 |> ignore *)
