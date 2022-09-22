@@ -71,7 +71,7 @@ type t = {
   instrument_modules : string; [@default ".*"]
       (* the function blacklist is applied on top of the whitelist *)
   instrument_functions : string; [@default ".*"]
-  function_blacklist : string; [@default " "]
+  do_not_instrument_functions : string; [@default " "]
   (* file raw trace should be written to *)
   file : string; [@default "debug.trace"]
   (* TODO this needs more testing *)

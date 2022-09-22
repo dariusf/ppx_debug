@@ -10,7 +10,8 @@ all:
 	dune exec ./demo/app/app.exe
 	dune exec ./demo/debug/debug.exe -- trace debug.trace > chrome.json
 	dune exec ./demo/debug/debug.exe -- trace debug.trace -f debugger > debugger.json
-	dune exec ./demo/debug/debug.exe -- trace debug.trace -f calls | head -n 2
+	dune exec ./demo/debug/debug.exe -- trace debug.trace -f calls | head -n 6
+	dune exec ./demo/debug/debug.exe -- trace debug.trace -f tree | head -n 6
 
 	ls chrome.json debugger.json *.trace /tmp/ppx_debug* || true
 

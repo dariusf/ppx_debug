@@ -364,8 +364,8 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
   in
   let print_params =
     if
-      config.should_instrument_definitions
-      && List.exists
+      (not config.should_instrument_definitions)
+      || List.exists
            (fun (m, f) ->
              Str.string_match (Str.regexp m) modname 0
              && Str.string_match (Str.regexp f) func.name 0)
@@ -378,11 +378,12 @@ let run_invoc modname (config : Config.t) filename fn_expr func =
   in
   let print_res =
     if
-      List.exists
-        (fun (m, f) ->
-          Str.string_match (Str.regexp m) modname 0
-          && Str.string_match (Str.regexp f) func.name 0)
-        config.should_not_instrument_definitions
+      (not config.should_instrument_definitions)
+      || List.exists
+           (fun (m, f) ->
+             Str.string_match (Str.regexp m) modname 0
+             && Str.string_match (Str.regexp f) func.name 0)
+           config.should_not_instrument_definitions
     then [%expr ()]
     else generate_arg ~loc filename "_res"
   in
@@ -415,7 +416,7 @@ let check_should_transform_fn config fn =
   then not_transforming "%s is a printer or generated" fn;
 
   let fwl = Str.regexp config.Config.instrument_functions in
-  let fbl = Str.regexp config.Config.function_blacklist in
+  let fbl = Str.regexp config.Config.do_not_instrument_functions in
 
   if not (Str.string_match fwl fn 0) then
     not_transforming "%s is not in function whitelist" fn;
