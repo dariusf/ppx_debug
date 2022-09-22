@@ -4,7 +4,7 @@ export PPX_DEBUG=$(shell jq -c < config.json)
 
 .PHONY: all
 all:
-	dune test --display=short
+	dune test
 	rm /tmp/ppx_debug* debugger.json chrome.json *.trace > /dev/null 2>&1 || true
 
 	dune exec ./demo/app/app.exe
@@ -16,4 +16,4 @@ all:
 
 .PHONY: debug
 debug: all
-	dune exec --display=short ./demo/debug/repl.bc
+	dune exec ./demo/debug/repl.bc

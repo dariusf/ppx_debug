@@ -1,11 +1,3 @@
-type mode =
-  (* blacklist *)
-  | All of string list
-  (* whitelist *)
-  | Some of string list
-  | Modules of string list
-[@@deriving yojson, show { with_path = false }]
-
 type variant =
   | Containers
   | Stdlib
@@ -72,8 +64,6 @@ type t = {
   (* whether to run the ppx *)
   enabled : bool; [@default true]
   (* control which functions/modules to log *)
-  (* deprecated *)
-  mode : mode; [@default All []]
   (* control which functions/modules to log via regexes *)
   instrument_modules : string; [@default ".*"]
   instrument_functions : string; [@default ".*"]
@@ -105,6 +95,7 @@ type t = {
       [@default SMap.empty]
   treat_as_opaque : string list; [@default []]
   libraries : string list; [@default []]
+  cmt_ignored_directories : string list; [@default ["test/"]]
 }
 [@@deriving yojson { strict = false }, show { with_path = false }]
 

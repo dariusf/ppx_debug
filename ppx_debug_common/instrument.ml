@@ -129,7 +129,7 @@ let normalize_fn f : func =
   in
   aux f
 
-(** Lossy somewhat-inverse of traverse_fn *)
+(** somewhat-inverse of traverse_fn *)
 let rec build_fn ({ loc; params; body; _ } as func) =
   match params with
   | [] -> body
@@ -185,9 +185,6 @@ let replace_calls find replace =
       | { pexp_desc = Pexp_ident { txt = Lident fn_name; loc }; _ }
         when String.equal fn_name find ->
         A.pexp_ident ~loc { txt = Lident replace; loc }
-      (* | { pexp_desc = Pexp_ident { txt = Ldot (initial, fn_name); loc }; _ }
-         when String.equal fn_name find ->
-         Exp.ident ~loc { txt = Ldot (initial, replace); loc } *)
       | _ -> expr
   end
 
@@ -240,14 +237,7 @@ let rec arrow_to_list t =
   | Ptyp_constr ({ txt = name; _ }, params) ->
     [PType (name, List.concat_map arrow_to_list params)]
   | Ptyp_var name -> [PPoly name]
-  (* | Ptyp_arrow (_, { ptyp_desc = Ptyp_constr ({ txt = name; _ }, params); _ }, b)
-     ->
-     PType (name, List.concat_map arrow_to_list params) :: arrow_to_list b *)
-  (* | Ptyp_arrow (_, { ptyp_desc = Ptyp_var name; _ }, b) ->
-     PPoly name :: arrow_to_list b *)
   | Ptyp_arrow (_, a, b) -> arrow_to_list a @ arrow_to_list b
-  (* | Ptyp_constr ({ txt = name; _ }, params) ->
-     [PType (name, List.concat_map arrow_to_list params)] *)
   | Ptyp_tuple params -> [PTuple (params |> List.concat_map arrow_to_list)]
   | Ptyp_variant (_, _, _) -> [PPolyVariant]
   | _ ->
@@ -365,20 +355,12 @@ let generate_end ~loc cu what =
 
 let run_invoc modname (config : Config.t) filename fn_expr func =
   let loc = func.loc in
-  (* TODO should fn_name be given to func in generate_printer? *)
   let start = generate_start ~loc filename func.name in
   let stop = generate_end ~loc filename func.name in
   let print_params =
     func.params
     |> List.filter_map (fun { name; ignored; _ } ->
-           if ignored then None
-           else Some (generate_arg ~loc filename name)
-             (* match ignored with
-                | true -> None
-                | false ->
-                , Param { param = { txt = s; _ }; _ } ->
-                  Some ()
-                | Unit _ -> None *))
+           if ignored then None else Some (generate_arg ~loc filename name))
   in
   let print_params =
     if
@@ -862,18 +844,9 @@ let traverse modname filename config =
             si
           | Failure s ->
             A.pstr_extension ~loc (Location.error_extensionf ~loc "%s" s) []
-            (* A.pstr_value ~loc Nonrecursive
-               [
-                 A.value_binding ~loc ~pat:(A.ppat_any ~loc)
-                   ~expr:;
-               ] *)
         end
       | _ -> super#structure_item si
   end
-
-(* let traverse filename modname config =
-   try traverse_ filename modname config
-   with NotTransforming s -> log "not transforming: %s" s *)
 
 let process file modname config str =
   try
