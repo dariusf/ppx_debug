@@ -5,6 +5,7 @@ let log = Ppx_debug_common.Instrument.log
 
 let () =
   let config = Config.read () in
+  log "%a" Config.pp config;
   if not config.Config.enabled then log "not transforming: disabled via config"
   else
     Driver.register_transformation

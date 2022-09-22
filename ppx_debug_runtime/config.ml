@@ -4,12 +4,12 @@ type mode =
   (* whitelist *)
   | Some of string list
   | Modules of string list
-[@@deriving yojson]
+[@@deriving yojson, show { with_path = false }]
 
 type variant =
   | Containers
   | Stdlib
-[@@deriving yojson]
+[@@deriving yojson, show { with_path = false }]
 
 module SMap = struct
   module M = Map.Make (String)

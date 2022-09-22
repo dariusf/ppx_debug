@@ -9,6 +9,8 @@ let rule =
        Ppx_debug_common.Interpret_cmt.handle_si)
 
 let () =
+  let config = Ppx_debug_runtime.Config.read () in
+  Ppx_debug_common.Interpret_cmt.log "%a" Ppx_debug_runtime.Config.pp config;
   Driver.register_transformation ~rules:[rule (* ; rule_expr *)]
     "ppx_debug_tool"
 
