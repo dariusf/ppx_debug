@@ -97,8 +97,7 @@ let normalize_fn f : func =
           in
           { func with params = param :: func.params }
         | Ppat_any ->
-          (* treat this like any other parameter, but generate a name *)
-          let name = fresh_v () in
+          let name = "_" ^ fresh_v () in
           let call =
             let lab =
               match (lbl, lbl_e) with
@@ -108,7 +107,14 @@ let normalize_fn f : func =
             (lab, A.pexp_ident ~loc { loc; txt = Lident name })
           in
           let param =
-            { name; label; ignored = false; pattern = arg_pat; call }
+            (* generate a name in the pattern *)
+            {
+              name;
+              label;
+              ignored = false;
+              pattern = A.ppat_var ~loc { txt = name; loc };
+              call;
+            }
           in
           { func with params = param :: func.params }
         | _ -> { body = f; params = []; name; loc }
@@ -117,6 +123,7 @@ let normalize_fn f : func =
       (* this is lossy. losing the constraint may change types *)
       aux e
     | _ ->
+      (* this is incomplete for cases with e.g. wildcards inside constructors that then have to be reconstructed *)
       log "did not fully normalize non-function %a" Pprintast.expression f;
       { body = f; params = []; name; loc }
   in
