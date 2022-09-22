@@ -17,4 +17,4 @@ all:
 
 .PHONY: debug
 debug: all
-	dune exec ./demo/debug/repl.bc
+	dune exec ./demo/debug/repl.bc -- repl debug.trace -i 6
