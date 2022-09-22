@@ -8,6 +8,7 @@ module Int = struct
 
   let of_int x = x
   let to_int x = x
+  let pp = Format.pp_print_int
 end
 
 module Priv : sig
@@ -15,6 +16,7 @@ module Priv : sig
 
   val of_int : int -> t
   val to_int : t -> int
+  val pp : Format.formatter -> t -> unit
 end =
   Int
 
@@ -23,5 +25,6 @@ module Abstr : sig
 
   val of_int : int -> t
   val to_int : t -> int
+  val pp : Format.formatter -> t -> unit
 end =
   Int

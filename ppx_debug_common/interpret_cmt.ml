@@ -84,7 +84,7 @@ let rec path_to_lident p =
 let flatten_path p =
   match Path.flatten p with
   | `Ok (h, xs) -> Ident.name h :: xs
-  | `Contains_apply -> failwith "adklj"
+  | `Contains_apply -> failwith "does not work with apply"
 
 let path_to_s p = flatten_path p |> String.concat "."
 let demangle modname = List.concat_map (String.split ~by:"__") modname
@@ -93,6 +93,9 @@ let mnl_to_lident modname =
   match modname with
   | [] -> failwith "modname cannot be empty"
   | m :: ms -> List.fold_left Ppxlib.(fun t c -> Ldot (t, c)) (Lident m) ms
+
+let first_matching f xs =
+  List.fold_left (fun t c -> match t with None -> f c | Some _ -> t) None xs
 
 (* pp because show is non-compositional.
    file and qual are for the current compilation unit, i.e. where exp_type is used.
@@ -238,38 +241,51 @@ and guess_named_type =
         | _ -> false);
       ([%expr fun fmt _ -> Format.fprintf fmt "<opaque>"], Error "opaque type")
     | _ ->
-      (* we have to figure out where some type is defined from where it is used in order to point to the right printer. *)
       let get_pp_name typ = match typ with "t" -> "pp" | _ -> "pp_" ^ typ in
       let qualifier, ident_name =
+        (* figure out where some type is defined, then use that to point to the right printer *)
         let typdecl = Env.find_type id env in
         let decl_filename = typdecl.type_loc.loc_start.pos_fname in
-        let first_matching f xs =
-          List.fold_left
-            (fun t c -> match t with None -> f c | Some _ -> t)
-            None xs
-        in
         let def_prefix =
           match
-            first_matching
-              (fun le ->
-                match relativize ~against:le decl_filename with
-                | None -> None
-                | Some def_file ->
-                  let e = file_to_module (Filename.basename le) in
-                  let m = file_to_module def_file in
-                  if List.equal String.equal e m then Some e else Some (e @ m))
-              library_entrypoints
+            library_entrypoints
+            |> first_matching (fun le ->
+                   match relativize ~against:le decl_filename with
+                   | None -> None
+                   | Some def_file ->
+                     (* assume that all path segments but the last are the directory hierarchy *)
+                     let e = file_to_module (Filename.basename le) in
+                     let m = file_to_module def_file in
+                     (* example: le = demo/lib, def_file = other.ml, e = Lib, m = Other *)
+                     (* if these are equal, e.g. Lib = Lib, we assume the use and def are in the same module,
+                        which must also be the entrypoint *)
+                     if List.equal String.equal e m then Some e else Some (e @ m))
           with
           | None -> file_to_module use_file
           | Some p -> p
         in
+        log "def_prefix: %a, id: %a" (List.pp String.pp) def_prefix Path.print
+          id;
         let qual = mnl_to_lident def_prefix in
         let new1 =
           match id with
-          | Path.Pdot (_, ident) -> (qual, ident)
+          | Path.Pdot (q, ident) ->
+            ( List.fold_left
+                (fun t c ->
+                  (* TODO heuristic. say a type is in demo/lib/other.ml,
+                     and we refer to the type as Other.Abstr.t.
+                     this drops Other, so we keep the internal module ref,
+                     which isn't apparent from filename. *)
+                  (* TODO can the cmt give us this? *)
+                  if not (List.mem ~eq:String.equal c def_prefix) then
+                    Longident.Ldot (t, c)
+                  else t)
+                qual (flatten_path q),
+              ident )
           | Pident ident -> (qual, Ident.name ident)
           | _ -> failwith "not applicable"
         in
+        log "new1: %a" (Pair.pp Pprintast.longident String.pp) new1;
         new1
       in
       log

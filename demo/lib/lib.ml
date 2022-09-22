@@ -20,8 +20,8 @@ let rec sum2 xs acc = match xs with [] -> acc | x :: xs -> sum2 xs (x + acc)
 (* this is so Other can be referenced through Lib *)
 module Other = Other
 
-(* let abstr_type (t : Other.Abstr.t) = t *)
-(* let prv_type (t : Other.Priv.t) = t *)
+let abstr_type (t : Other.Abstr.t) = t
+let prv_type (t : Other.Priv.t) = t
 let consume (t : Other.misc) = match t with Misc a -> a
 
 let rec insert x xs =
@@ -47,6 +47,6 @@ let main () =
   c (fun x -> x + 1) |> ignore;
   sum [1; 2; 3] |> ignore;
   sum2 [1; 2; 3] 0 |> ignore;
-  sort (List.init 10 (fun i -> i) |> shuffle) |> ignore
-(* abstr_type (Other.Abstr.of_int 1) |> ignore; *)
-(* prv_type (Other.Priv.of_int 1) |> ignore *)
+  sort (List.init 10 (fun i -> i) |> shuffle) |> ignore;
+  abstr_type (Other.Abstr.of_int 1) |> ignore;
+  prv_type (Other.Priv.of_int 1) |> ignore
