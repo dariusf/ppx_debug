@@ -335,6 +335,13 @@ let to_call_tree trace =
       Event { i; name; content; id; time; unmarshal; raw })
     trace
 
+let rec traverse f tree =
+  match tree with
+  | Call { i; calls; args; _ } ->
+    f tree i args;
+    List.iter (traverse f) calls
+  | Event { i; content; _ } -> f tree i [("val", content)]
+
 let group_sorted f xs =
   let rec loop res xs =
     match (xs, res) with
