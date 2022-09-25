@@ -4,10 +4,12 @@
  (modules debug)
  (libraries lib)
  (preprocessor_deps (env_var PPX_DEBUG) (source_tree ../lib)
-  ; for development only
+  ; for development only; not needed in a real project
   (source_tree ../../ppx_debug)
   (source_tree ../../ppx_debug_tool)
-  (source_tree ../../ppx_debug_common))
+  (source_tree ../../ppx_debug_common)
+  ; end development
+ )
  (preprocess (pps ppx_debug_tool)))
 
 (executable
@@ -17,10 +19,12 @@
  (modes native byte)
  (link_flags -linkall)
  (preprocessor_deps (env_var PPX_DEBUG) (source_tree ../lib)
-  ; for development only
+  ; for development only; not needed in a real project
   (source_tree ../../ppx_debug)
   (source_tree ../../ppx_debug_tool)
-  (source_tree ../../ppx_debug_common))
+  (source_tree ../../ppx_debug_common)
+  ; end development
+ )
  (preprocess (pps ppx_debug_tool)))
 
 (env

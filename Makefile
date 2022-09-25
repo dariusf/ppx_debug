@@ -1,6 +1,7 @@
 
 export OCAMLRUNPARAM=b
-export PPX_DEBUG=$(shell jq -c < config.json)
+export PPX_DEBUG=$(shell cat config.json)
+#export PPX_DEBUG=$(shell jq -c < config.json)
 
 .PHONY: all
 all:
