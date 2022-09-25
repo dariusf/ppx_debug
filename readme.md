@@ -1,9 +1,9 @@
 
 # ppx_debug
 
-![](docs/insertion-sort.png)
-
 A collection of tools for record-and-replay debugging.
+
+https://user-images.githubusercontent.com/4328341/192141194-2ab66ece-6e52-4eb7-8623-c6ceb82afa32.mov
 
 This works by instrumenting a program using ppx, running the program to record an execution, then analyzing the execution using editor plugins (which provide an interface like that of an interactive debugger), [Perfetto](https://ui.perfetto.dev/)/[magic-trace](https://magic-trace.org/), the OCaml toplevel, or CLI tools.
 
