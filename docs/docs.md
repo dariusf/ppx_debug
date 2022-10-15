@@ -66,7 +66,7 @@ Try opening it in one of these tools!
 
 debugger.json can be read by an [editor plugin](https://github.com/dariusf/ppx_debug-vscode) to enable an experience like that of interactive debugger, where you can navigate freely in time through the execution.
 
-Try installing the VSCode plugin and stepping through the execution!
+Try installing the VS Code plugin and stepping through the execution!
 
 https://user-images.githubusercontent.com/4328341/192141194-2ab66ece-6e52-4eb7-8623-c6ceb82afa32.mov
 
@@ -183,7 +183,7 @@ This is also planned.
 
 **Unbound module during compilation of the debug executable, with puzzling line number**
 
-Our heuristics are probably not good enough to figure out how to access a type from outside a library in your case. Improvements are being worked on, but for now, to see the types involved, check the generated code using `dune describe pp <file>`, or "Show Preprocessed Document" in VSCode. It may be possible to move modules around so the heuristics kick in. If all else fails, manually specify how to access the type from outside the library using `mappings`. Contacting us about your problem would also help us improve the heuristics.
+Our heuristics are probably not good enough to figure out how to access a type from outside a library in your case. Improvements are being worked on, but for now, to see the types involved, check the generated code using `dune describe pp <file>`, or "Show Preprocessed Document" in VS Code. It may be possible to move modules around so the heuristics kick in. If all else fails, manually specify how to access the type from outside the library using `mappings`. Contacting us about your problem would also help us improve the heuristics.
 
 **Stack overflow when interpreting large (200 MB) executions**
 
@@ -194,17 +194,23 @@ This is due to the use of scanf and is being worked on.
 <!-- why not typecheck twice? -->
 <!-- https://github.com/ocaml/RFCs/pull/24 -->
 
+**Why doesn't the VS Code extension use the debugger UI?**
+
+There is partial support in the extension for using it, but I found it less flexible and more complex than the ad hoc keybindings and overlays in the demo video, which cause minimal changes to the state of the editor. It could certainly be revived or made the default if it turns out to be nicer.
+
 # Other approaches
 
 **How does this compare to...**
 
-- **... `#trace`, printf?** Both of these are subsumed, though with a more heavyweight build pipeline.
-- **... ocamldebug?** Reverse execution is really nice, but like other interactive debuggers, interactions are limited to what the debugger can actually make the running program do. For example, ocamldebug cannot evaluate arbitrary code, and users are constrained to navigation along the single timeline of the program's execution, instead of being able to get an overview like with magic-trace.
-- **... logging, testing, tracing ([Runtime Events](https://github.com/sadiqj/runtime_events_tools))?** The crucial distinction between what these provide and the needs of users when debugging is that in the latter case, **the user does not know precisely which parts of the program are relevant**.
-- **... dtrace, rr, lldb, gdb via [libmonda](https://github.com/mshinwell/libmonda)?** It would be ideal if these tools understood native OCaml code, as they are fully-fledged and mature, but they don't today, and it is a significant amount of work to get them there. The main advantage of source-level instrumentation is that it is easier to convince ourselves of the fidelity of recorded traces under compiler optimizations, compared to the mapping of native code back to source-level constructs that these tools would require.
-- **... [ocamli](https://github.com/johnwhitington/ocamli), [Furukawa's stepper](https://arxiv.org/abs/1906.11422)?** Custom interpreters are another means of understanding executions, by being able to show actual sequences of reductions performed. They are a large undertaking, however, and both of these only support a subset of OCaml. This is fine for teaching, but not for debugging and exploring arbitrary projects.
-- **... [magic-trace](https://github.com/janestreet/magic-trace), [Landmarks](https://github.com/LexiFi/landmarks)?** Landmarks does similar instrumentation, and both provide tools for viewing executions. They are more oriented towards performance bugs and do not show the values of arguments and such.
-- **... reflection?** There are several libraries for runtime type representations, e.g. [dyntype](https://github.com/samoht/dyntype) (2013), [lrt](https://github.com/LexiFi/lrt) (2020), [repr](https://github.com/mirage/repr), [typerep](https://github.com/janestreet/typerep), [refl](https://github.com/thierry-martinez/refl) (2022). Perhaps the only problem is that none of these are standard. Nevertheless, if you are able to use one of these in your project, all ppx_debug offers is the tools to view executions with.
+- **`#trace`, printf?** Both of these are subsumed, though with a more heavyweight build pipeline.
+- **ocamldebug?** Reverse execution is really useful, but like other interactive debuggers, interactions are limited to what the debugger can actually make the running program do. For example, ocamldebug cannot evaluate arbitrary code, and users are constrained to navigation along the single timeline of the program's execution, instead of being able to get an overview like with e.g. `#trace`.
+- **logging, testing, tracing ([Runtime Events](https://github.com/sadiqj/runtime_events_tools))?** The crucial distinction between what these provide and the needs of users when debugging is that in the latter case, *the user does not know a priori which parts of the program are relevant*.
+- **dtrace, rr, lldb, gdb via [libmonda](https://github.com/mshinwell/libmonda)?** It would be ideal if these tools understood native OCaml code, as they are fully-fledged and mature, but they don't today, and it is a significant amount of work to get them there. The main advantage of source-level instrumentation is that it is easier to convince ourselves of the fidelity of recorded traces under compiler optimizations, compared to the mapping of native code back to source-level constructs that these tools would require.
+- **[ocamli](https://github.com/johnwhitington/ocamli), [Furukawa's stepper](https://arxiv.org/abs/1906.11422)?** Custom interpreters are another means of understanding executions, by being able to show actual sequences of reductions performed. They are a large undertaking, however, and both of these only support a subset of OCaml. This is fine for teaching, but not for debugging and exploring arbitrary projects.
+- **[magic-trace](https://github.com/janestreet/magic-trace), [Landmarks](https://github.com/LexiFi/landmarks)?** Landmarks does similar instrumentation, and both provide tools for viewing executions. They are more oriented towards performance bugs and do not show the values of arguments and such.
+- **runtime type representations?** There are several libraries for reflection and generic programming, e.g. [dyntype](https://github.com/samoht/dyntype) (2013), [lrt](https://github.com/LexiFi/lrt) (2020), [repr](https://github.com/mirage/repr), [typerep](https://github.com/janestreet/typerep), [refl](https://github.com/thierry-martinez/refl) (2022). Perhaps the only problem is that none of these are standard. Nevertheless, if you are able to use one of these in your project, there wouldn't be a need for the custom build.
+
+[viztracer](https://github.com/gaogaotiantian/viztracer) is a similar project for Python.
 
 # Project structure
 
