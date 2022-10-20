@@ -9,6 +9,6 @@ This works by instrumenting a program using ppx, running the program to record a
 
 - [Tutorial and docs](docs/docs.md)
 - [Demo project](demo)
-- [OCaml 2022](https://icfp22.sigplan.org/details/ocaml-2022-papers/2/Tracing-OCaml-Programs) [talk](youtube), [abstract](https://dariusf.github.io/tracing-ocaml22.pdf)
+- [OCaml 2022](https://icfp22.sigplan.org/details/ocaml-2022-papers/2/Tracing-OCaml-Programs) [talk](https://youtu.be/MwVeZrDyewU), [abstract](https://dariusf.github.io/tracing-ocaml22.pdf)
 
 **This is an early prototype. Feel free to try it on your projects, but expect rough edges. Contributions are very welcome!**
