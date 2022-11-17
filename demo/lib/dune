@@ -1,6 +1,5 @@
 (library
  (name lib)
- (libraries ppx_debug_runtime)
  (preprocessor_deps (env_var PPX_DEBUG))
  (preprocess (pps ppx_debug ppx_deriving.show)))
 
