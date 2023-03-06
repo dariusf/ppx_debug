@@ -5,6 +5,11 @@
  (inline_tests)
  (preprocess (pps ppxlib.metaquot ppx_deriving.show ppx_deriving_yojson ppx_expect)))
 
+(rule
+ (targets unstable.ml)
+ (deps    unstable.cppo.ml)
+ (action  (run %{bin:cppo} -V OCAML:%{ocaml_version} %{deps} -o %{targets})))
+
 (env
  (dev
   (flags

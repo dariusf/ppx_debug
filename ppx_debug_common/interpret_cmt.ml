@@ -447,7 +447,7 @@ let walk_build_dir () =
   |> Seq.iter (function
        | `File, s when String.ends_with ~suffix:"cmt" s && should_process s ->
          let cmt = Cmt_format.read_cmt s in
-         Load_path.init ~auto_include:Load_path.no_auto_include cmt.cmt_loadpath;
+         Unstable.Load_path.init cmt.cmt_loadpath;
          let modname = cmt.cmt_modname |> String.split ~by:"." in
          let str =
            match cmt.cmt_annots with
