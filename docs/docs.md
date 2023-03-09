@@ -62,7 +62,7 @@ dune exec ./demo/debug/debug.exe -- trace debug.trace -f debugger > debugger.jso
 chrome.json is the execution in [Chrome Trace Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview), which can be read by [chrome://tracing](chrome://tracing), [Perfetto](https://ui.perfetto.dev/), or [magic-trace](https://magic-trace.org/).
 Try opening it in one of these tools!
 
-![](docs/insertion-sort.png)
+![](insertion-sort.png)
 
 debugger.json can be read by an [editor plugin](https://github.com/dariusf/ppx_debug-vscode) to enable an experience like that of interactive debugger, where you can navigate freely in time through the execution.
 
